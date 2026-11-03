@@ -1,9 +1,18 @@
-{
-  "name": "kanji-dark-jlpt-trainer",
-  "version": "1.0.0",
-  "private": true,
-  "description": "A modern dark kanji learning app for JLPT N5–N1.",
-  "scripts": {
-    "start": "node serve.js"
+  {
+    "name": "kanji-dark-jlpt-trainer",
+    "version": "1.0.0",
+    "private": true,
+    "description": "A modern, dark kanji learning app for JLPT N5–N1.",
+    "scripts": {
+      "start": "node serve.js",
+      "deploy": "vercel --prod",
+      "preview": "vercel",
+      "dev": "npm install -g serve && serve -s ."
+    },
+    "devDependencies": {
+      "vercel": "^38.0.0"
+    },
+    "engines": {
+      "node": ">=18"
+    }
   }
-}
