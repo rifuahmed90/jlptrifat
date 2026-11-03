@@ -27,7 +27,7 @@ const DATA_META = {
     "count": 214
   },
   "words": 8325,
-  "generated": "2026-11-01T15:04:23.761Z"
+  "generated": "2026-11-03T11:50:01.125Z"
 };
 
 const TAXONOMY = {
