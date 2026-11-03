@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kanji — Dark JLPT Trainer</title>
+  <meta name="description" content="A modern, dark kanji learning app for JLPT N5–N1. Study 2,377 kanji with meanings, vocabulary, example sentences, stroke order and a 214-radical reference." />
+  <meta name="theme-color" content="#0a0e12" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" lang="ja" aria-hidden="true">漢</div>
+        <div class="brand-text">
+          <strong>Kanji</strong>
+          <span>JLPT 漢字 trainer</span>
+        </div>
+      </div>
+      <button class="icon-btn topbar-search" data-action="open-search" aria-label="Search kanji">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.4" /><path d="m16 16 4.3 4.3" />
+        </svg>
+      </button>
+      <button class="streak-pill" data-action="open-profile" aria-label="View profile and streak">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3.2c.9 3.1-2.3 4.6-2.3 7.1a2.3 2.3 0 0 0 4.6 0c0-.7-.2-1.3-.5-1.9 2.2 1.5 3.7 3.6 3.7 6a5.5 5.5 0 0 1-11 0c0-4 2.8-6.3 5.5-11.2z" />
+        </svg>
+        <span id="streak-count">0</span>
+      </button>
+      <button class="avatar" lang="ja" data-action="open-profile" aria-label="View profile">学</button>
+    </header>
+
+    <main class="view" id="view"></main>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="nav-item active" data-nav="home">
+        <span class="nav-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3.5 10.7 12 3.5l8.5 7.2" /><path d="M5.5 9.6V20h13V9.6" /><path d="M9.8 20v-5.4h4.4V20" />
+          </svg>
+        </span>
+        <span>Home</span>
+      </button>
+      <button class="nav-item" data-nav="browse">
+        <span class="nav-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3.5" y="3.5" width="7" height="7" rx="2" /><rect x="13.5" y="3.5" width="7" height="7" rx="2" /><rect x="3.5" y="13.5" width="7" height="7" rx="2" /><rect x="13.5" y="13.5" width="7" height="7" rx="2" />
+          </svg>
+        </span>
+        <span>Kanji</span>
+      </button>
+      <button class="nav-item" data-nav="quiz">
+        <span class="nav-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.7" /><path d="M9.6 9.2a2.5 2.5 0 1 1 3.7 2.2c-.8.5-1.3 1-1.3 1.9" /><path d="M12 17h.01" />
+          </svg>
+        </span>
+        <span>Quiz</span>
+      </button>
+      <button class="nav-item" data-nav="profile">
+        <span class="nav-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.6" /><path d="M4.7 20a7.4 7.4 0 0 1 14.6 0" />
+          </svg>
+        </span>
+        <span>You</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="sheet-scrim" id="scrim" data-action="close-sheet" aria-hidden="true"></div>
+  <aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Kanji details"></aside>
+
+  <div class="snackbar" id="snackbar" role="status" aria-live="polite"></div>
+
+  <dialog class="confirm" id="confirm-dialog">
+    <h3>Reset all progress?</h3>
+    <p>This clears learned kanji, saved words, quiz stats and your streak. It cannot be undone.</p>
+    <div class="dialog-actions">
+      <button class="btn ghost" data-action="close-dialog">Cancel</button>
+      <button class="btn danger" data-action="confirm-reset">Reset</button>
+    </div>
+  </dialog>
+
+  <dialog class="confirm firebase-modal" id="firebase-dialog">
+    <div class="firebase-modal-head">
+      <div class="firebase-modal-title">
+        <h3>Firebase Cloud Sync</h3>
+      </div>
+      <button class="icon-btn" data-action="close-firebase-dialog" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <p class="firebase-desc">
+      Google দিয়ে সাইন-ইন করে সকল ডিভাইসে কাঞ্জি অগ্রগতি সিঙ্ক করার জন্য আপনার Firebase প্রজেক্ট কনফিগারেশন দিন (অথবা <code>js/firebase-config.js</code> ফাইলে সেট করুন)।
+    </p>
+    <div class="fb-field-group">
+      <label for="firebase-config-input">Firebase Config (JSON ফরম্যাট):</label>
+      <textarea id="firebase-config-input" rows="7" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "your-app.firebaseapp.com",
+  "projectId": "your-app",
+  "storageBucket": "your-app.appspot.com",
+  "messagingSenderId": "...",
+  "appId": "..."
+}'></textarea>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn ghost" data-action="close-firebase-dialog">বাতিল</button>
+      <button class="btn primary" data-action="save-firebase-config">সেভ ও কানেক্ট করুন</button>
+    </div>
+  </dialog>
+
+  <!-- Firebase SDKs (v10 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/firebase-sync.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

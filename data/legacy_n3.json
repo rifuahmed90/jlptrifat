@@ -1,0 +1,199 @@
+[
+  {
+    "char": "感",
+    "meaning": "sensation, to feel",
+    "on": [
+      "カン"
+    ],
+    "kun": [],
+    "level": "N3",
+    "strokes": 13,
+    "radical": "心",
+    "example": {
+      "word": "感じる",
+      "reading": "かんじる",
+      "meaning": "to feel",
+      "meaningBn": "অনুভব করা"
+    },
+    "meaningBn": "অনুভূতি, অনুভব করা"
+  },
+  {
+    "char": "想",
+    "meaning": "thought, concept",
+    "on": [
+      "ソウ"
+    ],
+    "kun": [],
+    "level": "N3",
+    "strokes": 13,
+    "radical": "心",
+    "example": {
+      "word": "感想",
+      "reading": "かんそう",
+      "meaning": "impressions",
+      "meaningBn": "মতামত / অনুভূতি"
+    },
+    "meaningBn": "চিন্তা, ধারণা"
+  },
+  {
+    "char": "情",
+    "meaning": "emotion, circumstances",
+    "on": [
+      "ジョウ",
+      "セイ"
+    ],
+    "kun": [
+      "なさ"
+    ],
+    "level": "N3",
+    "strokes": 11,
+    "radical": "心",
+    "example": {
+      "word": "情報",
+      "reading": "じょうほう",
+      "meaning": "information",
+      "meaningBn": "তথ্য"
+    },
+    "meaningBn": "আবেগ, পরিস্থিতি"
+  },
+  {
+    "char": "理",
+    "meaning": "reason, logic",
+    "on": [
+      "リ"
+    ],
+    "kun": [],
+    "level": "N3",
+    "strokes": 11,
+    "radical": "王",
+    "example": {
+      "word": "料理",
+      "reading": "りょうり",
+      "meaning": "cooking",
+      "meaningBn": "রান্না"
+    },
+    "meaningBn": "কারণ, যুক্তি"
+  },
+  {
+    "char": "由",
+    "meaning": "reason, origin",
+    "on": [
+      "ユウ",
+      "ユイ"
+    ],
+    "kun": [
+      "よし"
+    ],
+    "level": "N3",
+    "strokes": 5,
+    "radical": "田",
+    "example": {
+      "word": "自由",
+      "reading": "じゆう",
+      "meaning": "freedom",
+      "meaningBn": "স্বাধীনতা"
+    },
+    "meaningBn": "কারণ, উৎপত্তি"
+  },
+  {
+    "char": "決",
+    "meaning": "to decide, settle",
+    "on": [
+      "ケツ"
+    ],
+    "kun": [
+      "き"
+    ],
+    "level": "N3",
+    "strokes": 7,
+    "radical": "水",
+    "example": {
+      "word": "決める",
+      "reading": "きめる",
+      "meaning": "to decide",
+      "meaningBn": "ঠিক করা"
+    },
+    "meaningBn": "সিদ্ধান্ত নেওয়া, ঠিক করা"
+  },
+  {
+    "char": "変",
+    "meaning": "to change, strange",
+    "on": [
+      "ヘン"
+    ],
+    "kun": [
+      "か"
+    ],
+    "level": "N3",
+    "strokes": 9,
+    "radical": "又",
+    "example": {
+      "word": "変わる",
+      "reading": "かわる",
+      "meaning": "to change",
+      "meaningBn": "পরিবর্তন হওয়া"
+    },
+    "meaningBn": "পরিবর্তন হওয়া, অদ্ভুত"
+  },
+  {
+    "char": "化",
+    "meaning": "to transform, -ization",
+    "on": [
+      "カ",
+      "ケ"
+    ],
+    "kun": [
+      "ば"
+    ],
+    "level": "N3",
+    "strokes": 4,
+    "radical": "匕",
+    "example": {
+      "word": "文化",
+      "reading": "ぶんか",
+      "meaning": "culture",
+      "meaningBn": "সংস্কৃতি"
+    },
+    "meaningBn": "রূপান্তর, -ীকরণ"
+  },
+  {
+    "char": "研",
+    "meaning": "to polish, study",
+    "on": [
+      "ケン"
+    ],
+    "kun": [
+      "と"
+    ],
+    "level": "N3",
+    "strokes": 9,
+    "radical": "石",
+    "example": {
+      "word": "研究",
+      "reading": "けんきゅう",
+      "meaning": "research",
+      "meaningBn": "গবেষণা"
+    },
+    "meaningBn": "ঘষে মসৃণ করা, অধ্যয়ন করা"
+  },
+  {
+    "char": "究",
+    "meaning": "to research, master",
+    "on": [
+      "キュウ"
+    ],
+    "kun": [
+      "きわ"
+    ],
+    "level": "N3",
+    "strokes": 7,
+    "radical": "穴",
+    "example": {
+      "word": "研究室",
+      "reading": "けんきゅうしつ",
+      "meaning": "laboratory",
+      "meaningBn": "গবেষণাগার"
+    },
+    "meaningBn": "গবেষণা করা, নিপুণ হওয়া"
+  }
+]

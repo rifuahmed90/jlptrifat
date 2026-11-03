@@ -1,0 +1,604 @@
+const fs = require("fs");
+
+const GRAMMAR_DATA = [
+  // N5
+  {
+    id: "g_n5_01",
+    pattern: "〜は〜です",
+    romaji: "... wa ... desu",
+    level: "N5",
+    meaningBn: "A হলো B (পরিচয় বা বিবরণ দেওয়া)",
+    meaningEn: "A is B (Topic and identification)",
+    formation: "Noun A + は + Noun B + です",
+    explanationBn: "জাপানি ভাষার সবচেয়ে মৌলিক বাক্য গঠন। は (উচ্চারণ wa) নির্দেশ করে বাক্যের মূল বিষয় (topic) এবং です নির্দেশ করে 'হয়' বা নম্র সমাপ্তি।",
+    examples: [
+      {
+        japanese: "私は学生です。",
+        ruby: "<ruby>私<rt>わたし</rt></ruby>は<ruby>学生<rt>がくせい</rt></ruby>です。",
+        reading: "わたし は がくせい です",
+        romaji: "Watashi wa gakusei desu.",
+        meaningBn: "আমি একজন শিক্ষার্থী।",
+        meaningEn: "I am a student."
+      },
+      {
+        japanese: "これは本です。",
+        ruby: "これは<ruby>本<rt>ほん</rt></ruby>です。",
+        reading: "これ は ほん です",
+        romaji: "Kore wa hon desu.",
+        meaningBn: "এটি একটি বই।",
+        meaningEn: "This is a book."
+      }
+    ]
+  },
+  {
+    id: "g_n5_02",
+    pattern: "〜じゃありません / ではありません",
+    romaji: "... ja arimasen / dewa arimasen",
+    level: "N5",
+    meaningBn: "...নয় (না-বোধক)",
+    meaningEn: "is not / am not (Negative)",
+    formation: "Noun / Na-adj + じゃありません",
+    explanationBn: "です-এর নেগেটিভ রূপ। কথ্য ভাষায় じゃありません এবং লিখিত বা ফরমাল ভাষায় ではありません ব্যবহৃত হয়।",
+    examples: [
+      {
+        japanese: "彼は先生じゃありません。",
+        ruby: "<ruby>彼<rt>かれ</rt></ruby>は<ruby>先生<rt>せんせい</rt></ruby>じゃありません。",
+        reading: "かれ は せんせい じゃ ありません",
+        romaji: "Kare wa sensei ja arimasen.",
+        meaningBn: "তিনি শিক্ষক নন।",
+        meaningEn: "He is not a teacher."
+      }
+    ]
+  },
+  {
+    id: "g_n5_03",
+    pattern: "〜てください",
+    romaji: "... te kudasai",
+    level: "N5",
+    meaningBn: "অনুগ্রহ করে ...করুন (অনুরোধ)",
+    meaningEn: "Please do ... (Polite request)",
+    formation: "Verb [て-form] + ください",
+    explanationBn: "কাউকে কোনো কাজ বিনয়ের সাথে করার অনুরোধ করতে ক্রিয়ার তে-ফর্মের সাথে ください যোগ করা হয়।",
+    examples: [
+      {
+        japanese: "日本語で話してください。",
+        ruby: "<ruby>日本語<rt>にほんご</rt></ruby>で<ruby>話<rt>はな</rt></ruby>してください。",
+        reading: "にほんご で はなして ください",
+        romaji: "Nihongo de hanashite kudasai.",
+        meaningBn: "অনুগ্রহ করে জাপানি ভাষায় কথা বলুন।",
+        meaningEn: "Please speak in Japanese."
+      },
+      {
+        japanese: "ここに名前を書いてください。",
+        ruby: "ここに<ruby>名前<rt>なまえ</rt></ruby>を<ruby>書<rt>か</rt></ruby>いてください。",
+        reading: "ここ に なまえ を かいて ください",
+        romaji: "Koko ni namae o kaite kudasai.",
+        meaningBn: "অনুগ্রহ করে এখানে নাম লিখুন।",
+        meaningEn: "Please write your name here."
+      }
+    ]
+  },
+  {
+    id: "g_n5_04",
+    pattern: "〜てもいいです",
+    romaji: "... temo ii desu",
+    level: "N5",
+    meaningBn: "...করলেও চলবে / অনুমতি আছে",
+    meaningEn: "May I ... / You may ... (Permission)",
+    formation: "Verb [て-form] + もいいです",
+    explanationBn: "কোনো কাজের অনুমতি চাইতে বা দিতে ব্যবহৃত হয়। প্রশ্ন করতে শেষে か যোগ করুন (〜てもいいですか)।",
+    examples: [
+      {
+        japanese: "写真を撮ってもいいですか。",
+        ruby: "<ruby>写真<rt>しゃしん</rt></ruby>を<ruby>撮<rt>と</rt></ruby>ってもいいですか。",
+        reading: "しゃしん を とっても いい です か",
+        romaji: "Shashin o totte mo ii desu ka.",
+        meaningBn: "ছবি তুললে কি সমস্যা আছে? / ছবি তুলতে পারি?",
+        meaningEn: "May I take a photo?"
+      }
+    ]
+  },
+  {
+    id: "g_n5_05",
+    pattern: "〜てはいけません",
+    romaji: "...te wa ikemasen",
+    level: "N5",
+    meaningBn: "...করা যাবে না / নিষেধ",
+    meaningEn: "Must not do ... (Prohibition)",
+    formation: "Verb [て-form] + はいけません",
+    explanationBn: "দৃঢ়ভাবে কোনো কাজ করতে নিষেধ করতে ব্যবহৃত হয়।",
+    examples: [
+      {
+        japanese: "ここでたばこを吸ってはいけません。",
+        ruby: "ここでたばこを<ruby>吸<rt>す</rt></ruby>ってはいけません。",
+        reading: "ここ で たばこ を すって は いけません",
+        romaji: "Koko de tabako o sutte wa ikemasen.",
+        meaningBn: "এখানে ধূমপান করা যাবে না।",
+        meaningEn: "You must not smoke here."
+      }
+    ]
+  },
+  {
+    id: "g_n5_06",
+    pattern: "〜から",
+    romaji: "... kara",
+    level: "N5",
+    meaningBn: "কারণ / যেহেতু",
+    meaningEn: "Because / Since",
+    formation: "Sentence A + から + Sentence B",
+    explanationBn: "কোনো কাজের কারণ বা যুক্তি তুলে ধরতে বাক্যটির শেষে から বসে।",
+    examples: [
+      {
+        japanese: "雨が降っていますから、傘を持って行きます。",
+        ruby: "<ruby>雨<rt>あめ</rt></ruby>が<ruby>降<rt>ふ</rt></ruby>っていますから、<ruby>傘<rt>かさ</rt></ruby>を<ruby>持<rt>も</rt></ruby>って<ruby>行<rt>い</rt></ruby>きます。",
+        reading: "あめ が ふって います から かさ を もって いきます",
+        romaji: "Ame ga futte imasu kara, kasa o motte ikimasu.",
+        meaningBn: "যেহেতু বৃষ্টি পড়ছে, তাই ছাতা সাথে নিয়ে যাচ্ছি।",
+        meaningEn: "Because it's raining, I will take an umbrella."
+      }
+    ]
+  },
+  {
+    id: "g_n5_07",
+    pattern: "〜たいです",
+    romaji: "... tai desu",
+    level: "N5",
+    meaningBn: "...করতে চাই (নিজের ইচ্ছা)",
+    meaningEn: "Want to do ... (First person desire)",
+    formation: "Verb [ます-stem] + たいです",
+    explanationBn: "নিজের ইচ্ছা বা আকাঙ্ক্ষা প্রকাশ করতে ব্যবহৃত হয়। অন্য কারো ইচ্ছা প্রকাশে 〜たがっている বসে।",
+    examples: [
+      {
+        japanese: "日本へ行きたいです。",
+        ruby: "<ruby>日本<rt>にほん</rt></ruby>へ<ruby>行<rt>い</rt></ruby>きたいです。",
+        reading: "にほん え いきたい です",
+        romaji: "Nihon e ikitai desu.",
+        meaningBn: "আমি জাপানে যেতে চাই।",
+        meaningEn: "I want to go to Japan."
+      }
+    ]
+  },
+  {
+    id: "g_n5_08",
+    pattern: "〜たことがあります",
+    romaji: "... ta koto ga arimasu",
+    level: "N5",
+    meaningBn: "অতীতে ...করার অভিজ্ঞতা আছে",
+    meaningEn: "Have the experience of ...",
+    formation: "Verb [た-form] + ことがあります",
+    explanationBn: "অতীতে জীবনে কখনো কোনো কাজ করেছেন কি না তা প্রকাশ করতে ব্যবহৃত হয়।",
+    examples: [
+      {
+        japanese: "富士山に登ったことがあります。",
+        ruby: "<ruby>富士山<rt>ふじさん</rt></ruby>に<ruby>登<rt>のぼ</rt></ruby>ったことがあります。",
+        reading: "ふじさん に のぼった こと が あります",
+        romaji: "Fujisan ni nobotta koto ga arimasu.",
+        meaningBn: "আমার ফুজি পাহাড়ে ওঠার অভিজ্ঞতা আছে।",
+        meaningEn: "I have climbed Mt. Fuji before."
+      }
+    ]
+  },
+  {
+    id: "g_n5_09",
+    pattern: "〜まえに",
+    romaji: "... mae ni",
+    level: "N5",
+    meaningBn: "...করার আগে বা পূর্বে",
+    meaningEn: "Before doing ...",
+    formation: "Verb [Dictionary form] / Noun の + 前に",
+    explanationBn: "কোনো কাজ করার আগে অন্য কাজ বোঝাতে ব্যবহৃত হয়।",
+    examples: [
+      {
+        japanese: "寝る前に歯を磨きます。",
+        ruby: "<ruby>寝<rt>ね</rt></ruby>る<ruby>前<rt>まえ</rt></ruby>に<ruby>歯<rt>は</rt></ruby>を<ruby>磨<rt>みが</rt></ruby>きます。",
+        reading: "ねる まえ に は を みがきます",
+        romaji: "Neru mae ni ha o migakimasu.",
+        meaningBn: "ঘুমাতে যাওয়ার আগে দাঁত মাজি।",
+        meaningEn: "I brush my teeth before going to bed."
+      }
+    ]
+  },
+  {
+    id: "g_n5_10",
+    pattern: "〜ことができます",
+    romaji: "... koto ga dekimasu",
+    level: "N5",
+    meaningBn: "...করতে পারি / সক্ষমতা আছে",
+    meaningEn: "Can do ... / Be able to ...",
+    formation: "Verb [Dictionary form] + ことができます",
+    explanationBn: "কোনো কাজ করতে পারার দক্ষতা বা সামর্থ্য প্রকাশ করতে বসে।",
+    examples: [
+      {
+        japanese: "漢字を読むことができます。",
+        ruby: "<ruby>漢字<rt>かんじ</rt></ruby>を<ruby>読<rt>よ</rt></ruby>むことができます。",
+        reading: "かんじ を よむ こと が できます",
+        romaji: "Kanji o yomu koto ga dekimasu.",
+        meaningBn: "আমি কাঞ্জি পড়তে পারি।",
+        meaningEn: "I can read kanji."
+      }
+    ]
+  },
+  {
+    id: "g_n5_11",
+    pattern: "〜なければなりません",
+    romaji: "... nakereba narimasen",
+    level: "N5",
+    meaningBn: "অবশ্যই ...করতে হবে (বাধ্যবাধকতা)",
+    meaningEn: "Must do ... (Obligation)",
+    formation: "Verb [ない-form] (drop い) + ければなりません",
+    explanationBn: "কর্তব্য বা বাধ্যবাধকতা বোঝায়।",
+    examples: [
+      {
+        japanese: "毎日薬を飲まなければなりません。",
+        ruby: "<ruby>毎日<rt>まいにち</rt></ruby><ruby>薬<rt>くすり</rt></ruby>を<ruby>飲<rt>の</rt></ruby>まなければなりません。",
+        reading: "まいにち くすり を のまなければ なりません",
+        romaji: "Mainichi kusuri o nomanakereba narimasen.",
+        meaningBn: "প্রতিদিন অবশ্যই ওষুধ খেতে হবে।",
+        meaningEn: "I must take medicine every day."
+      }
+    ]
+  },
+
+  // N4
+  {
+    id: "g_n4_01",
+    pattern: "〜たら",
+    romaji: "... tara",
+    level: "N4",
+    meaningBn: "যদি / ...করলে (শর্ত বা সময়)",
+    meaningEn: "If / When (Conditional)",
+    formation: "Verb / Adj / Noun [た-form] + ら",
+    explanationBn: "সবচেয়ে সাধারণ ও প্রাকৃতিক শর্তবোধক ব্যাকরণ। প্রথম কাজটি সম্পন্ন হলে দ্বিতীয় ঘটনা ঘটবে।",
+    examples: [
+      {
+        japanese: "雨が降ったら、出かけません。",
+        ruby: "<ruby>雨<rt>あめ</rt></ruby>が<ruby>降<rt>ふ</rt></ruby>ったら、<ruby>出<rt>で</rt></ruby>かけません。",
+        reading: "あめ が ふったら でかけません",
+        romaji: "Ame ga futtara, dekakemasen.",
+        meaningBn: "যদি বৃষ্টি হয়, তবে বাইরে যাব না।",
+        meaningEn: "If it rains, I won't go out."
+      },
+      {
+        japanese: "駅に着いたら、電話してください。",
+        ruby: "<ruby>駅<rt>えき</rt></ruby>に<ruby>着<rt>つ</rt></ruby>いたら、<ruby>電話<rt>でんわ</rt></ruby>してください。",
+        reading: "えき に ついたら でんわ して ください",
+        romaji: "Eki ni tsuitara, denwa shite kudasai.",
+        meaningBn: "স্টেশনে পৌঁছালে ফোন করো।",
+        meaningEn: "Call me when you arrive at the station."
+      }
+    ]
+  },
+  {
+    id: "g_n4_02",
+    pattern: "〜ば",
+    romaji: "... ba",
+    level: "N4",
+    meaningBn: "করলে / হলে (শর্ত)",
+    meaningEn: "If (Hypothetical condition)",
+    formation: "Verb [ば-form] (u -> e + ba) / i-adj (drop い + ければ)",
+    explanationBn: "একটি কাল্পনিক শর্ত প্রকাশ করে—যদি A ঘটে, তবে B অবশ্যই হবে।",
+    examples: [
+      {
+        japanese: "安ければ買います。",
+        ruby: "<ruby>安<rt>やす</rt></ruby>ければ<ruby>買<rt>か</rt></ruby>います。",
+        reading: "やすければ かいます",
+        romaji: "Yasukereba kaimasu.",
+        meaningBn: "যদি সস্তা হয়, তবে কিনব।",
+        meaningEn: "If it's cheap, I will buy it."
+      }
+    ]
+  },
+  {
+    id: "g_n4_03",
+    pattern: "〜なら",
+    romaji: "... nara",
+    level: "N4",
+    meaningBn: "যদি তাই হয় / এর ক্ষেত্রে",
+    meaningEn: "If it is / As for",
+    formation: "Noun / Verb [Dictionary form] + なら",
+    explanationBn: "অন্যের কথার ওপর ভিত্তি করে পরামর্শ বা নিজের মতামত দিতে ব্যবহৃত হয়।",
+    examples: [
+      {
+        japanese: "京都へ行くなら、秋が一番いいですよ。",
+        ruby: "<ruby>京都<rt>きょうと</rt></ruby>へ<ruby>行<rt>い</rt></ruby>くなら、<ruby>秋<rt>あき</rt></ruby>が<ruby>一番<rt>いちばん</rt></ruby>いいですよ。",
+        reading: "きょうと え いくなら あき が いちばん いい です よ",
+        romaji: "Kyouto e iku nara, aki ga ichiban ii desu yo.",
+        meaningBn: "যদি কিয়োটো যাও, তবে শরৎকালই সবচেয়ে সেরা।",
+        meaningEn: "If you are going to Kyoto, autumn is the best."
+      }
+    ]
+  },
+  {
+    id: "g_n4_04",
+    pattern: "〜ても / 〜でも",
+    romaji: "... temo / demo",
+    level: "N4",
+    meaningBn: "করলেও / হওয়া সত্ত্বেও",
+    meaningEn: "Even if / Although",
+    formation: "Verb [て-form] + も / Noun + でも",
+    explanationBn: "বিপরীত শর্ত প্রকাশ করে—এমনটা হলেও ফলাফল বদলাবে না।",
+    examples: [
+      {
+        japanese: "雨が降っても、サッカーをします。",
+        ruby: "<ruby>雨<rt>あめ</rt></ruby>が<ruby>降<rt>ふ</rt></ruby>っても、サッカーをします。",
+        reading: "あめ が ふっても さっかー を します",
+        romaji: "Ame ga futtemo, sakkaa o shimasu.",
+        meaningBn: "বৃষ্টি হলেও ফুটবল খেলব।",
+        meaningEn: "Even if it rains, I will play soccer."
+      }
+    ]
+  },
+  {
+    id: "g_n4_05",
+    pattern: "〜ようになる",
+    romaji: "... you ni naru",
+    level: "N4",
+    meaningBn: "অভ্যস্ত হওয়া / পারদর্শী হয়ে ওঠা",
+    meaningEn: "To reach the point where / Become able to",
+    formation: "Verb [Dictionary form / Potential form] + ようになる",
+    explanationBn: "আগে পারতাম না বা করতাম না, কিন্তু এখন পারি বা শুরু করেছি এমন পরিবর্তন বোঝাতে ব্যবহৃত হয়।",
+    examples: [
+      {
+        japanese: "日本語で新聞が読めるようになりました。",
+        ruby: "<ruby>日本語<rt>にほんご</rt></ruby>で<ruby>新聞<rt>しんぶん</rt></ruby>が<ruby>読<rt>よ</rt></ruby>めるようになりました。",
+        reading: "にほんご で しんぶん が よめる ように なりました",
+        romaji: "Nihongo de shinbun ga yomeru you ni narimashita.",
+        meaningBn: "আমি এখন জাপানি ভাষায় সংবাদপত্র পড়তে পারি।",
+        meaningEn: "I have become able to read newspapers in Japanese."
+      }
+    ]
+  },
+  {
+    id: "g_n4_06",
+    pattern: "受身形 (うけみけい - Passive)",
+    romaji: "Passive form (...rareru)",
+    level: "N4",
+    meaningBn: "প্যাসিভ ফর্ম (কারো দ্বারা হওয়া / ভুক্তভোগী হওয়া)",
+    meaningEn: "Passive Voice",
+    formation: "Group 1: u -> a + reru / Group 2: drop ru + rareru",
+    explanationBn: "অন্যের কাজের শিকার বা প্রভাবিত হওয়া প্রকাশ করতে ব্যবহৃত হয়। জাপানি ভাষায় প্রায়ই বিরক্তিকর পরিস্থিতি বোঝায়।",
+    examples: [
+      {
+        japanese: "弟にケーキを食べられました。",
+        ruby: "<ruby>弟<rt>おとうと</rt></ruby>にケーキを<ruby>食<rt>た</rt></ruby>べられました。",
+        reading: "おとうと に けーき を たべられました",
+        romaji: "Otouto ni keeki o taberaremashita.",
+        meaningBn: "আমার ছোট ভাই আমার কেকটা খেয়ে ফেলেছিল (আমি দুঃখিত)।",
+        meaningEn: "My cake was eaten by my little brother."
+      }
+    ]
+  },
+  {
+    id: "g_n4_07",
+    pattern: "使役形 (しえきけい - Causative)",
+    romaji: "Causative form (...saseru)",
+    level: "N4",
+    meaningBn: "কাউকে দিয়ে করানো / অনুমতি দেওয়া",
+    meaningEn: "Make / Let someone do",
+    formation: "Group 1: u -> a + seru / Group 2: drop ru + saseru",
+    explanationBn: "কাউকে কোনো কাজ করতে বাধ্য করা বা অনুমতি দেওয়া প্রকাশ করতে বসে।",
+    examples: [
+      {
+        japanese: "母は妹に部屋を掃除させました。",
+        ruby: "<ruby>母<rt>はは</rt></ruby>は<ruby>妹<rt>いもうと</rt></ruby>に<ruby>部屋<rt>へや</rt></ruby>を<ruby>掃除<rt>そうじ</rt></ruby>させました。",
+        reading: "はは は いもうと に へや を そうじ させました",
+        romaji: "Haha wa imouto ni heya o souji sasemashita.",
+        meaningBn: "মা ছোট বোনকে দিয়ে ঘর পরিষ্কার করিয়েছিলেন।",
+        meaningEn: "Mother made my sister clean the room."
+      }
+    ]
+  },
+  {
+    id: "g_n4_08",
+    pattern: "〜てしまう",
+    romaji: "... te shimau",
+    level: "N4",
+    meaningBn: "দুর্ঘটনাবশত করে ফেলা / সম্পূর্ণরূপে সম্পন্ন করা",
+    meaningEn: "Do unintentionally (regret) / Finish completely",
+    formation: "Verb [て-form] + しまう",
+    explanationBn: "কোনো কাজ ভুলবশত বা অসাবধানতাবশত ঘটে যাওয়া এবং সেজন্য অনুশোচনা প্রকাশ করা।",
+    examples: [
+      {
+        japanese: "電車に傘を忘れてしまいました。",
+        ruby: "<ruby>電車<rt>でんしゃ</rt></ruby>に<ruby>傘<rt>かさ</rt></ruby>を<ruby>忘<rt>わす</rt></ruby>れてしまいました。",
+        reading: "でんしゃ に かさ を わすれて しまいました",
+        romaji: "Densha ni kasa o wasurete shimaimashita.",
+        meaningBn: "ট্রেনে ছাতাটি ফেলে এসেছি (ভুলবশত)।",
+        meaningEn: "I accidentally left my umbrella on the train."
+      }
+    ]
+  },
+  {
+    id: "g_n4_09",
+    pattern: "〜そうだ (様態 - Appearance)",
+    romaji: "... sou da (looks like)",
+    level: "N4",
+    meaningBn: "দেখে মনে হচ্ছে ...হবে",
+    meaningEn: "Looks like / About to",
+    formation: "Verb [ます-stem] / Adj (drop い/な) + そうだ",
+    explanationBn: "নিজের চোখে দেখে অনুমান করা—এখনই ঘটবে এমন অবস্থা।",
+    examples: [
+      {
+        japanese: "今にも雨が降りそうです。",
+        ruby: "<ruby>今<rt>いま</rt></ruby>にも<ruby>雨<rt>あめ</rt></ruby>が<ruby>降<rt>ふ</rt></ruby>りそうです。",
+        reading: "いま にも あめ が ふりそう です",
+        romaji: "Ima ni mo ame ga furisou desu.",
+        meaningBn: "এই বুঝি বৃষ্টি নামবে মনে হচ্ছে।",
+        meaningEn: "It looks like it is about to rain at any moment."
+      }
+    ]
+  },
+
+  // N3
+  {
+    id: "g_n3_01",
+    pattern: "〜わけにはいかない",
+    romaji: "... wake ni wa ikanai",
+    level: "N3",
+    meaningBn: "নৈতিক/সামাজিক কারণে করা সম্ভব নয়",
+    meaningEn: "Cannot afford to do / Must not do",
+    formation: "Verb [Dictionary form] + わけにはいかない",
+    explanationBn: "শারীরিকভাবে করা সম্ভব হলেও বিবেক, নীতি, সমাজ বা প্রতিশ্রুতির কারণে কাজটি করা যায় না।",
+    examples: [
+      {
+        japanese: "明日は大事な試験があるので、休むわけにはいかない。",
+        ruby: "<ruby>明日<rt>あした</rt></ruby>は<ruby>大事<rt>だいじ</rt></ruby>な<ruby>試験<rt>しけん</rt></ruby>があるので、<ruby>休<rt>やす</rt></ruby>むわけにはいかない。",
+        reading: "あした は だいじ な しけん が ある ので やすむ わけ に は いかない",
+        romaji: "Ashita wa daiji na shiken ga aru node, yasumu wake ni wa ikanai.",
+        meaningBn: "আগামীকাল গুরুত্বপূর্ণ পরীক্ষা আছে, তাই অনুপস্থিত থাকার কোনো সুযোগ নেই।",
+        meaningEn: "Tomorrow is an important exam, so I cannot afford to be absent."
+      }
+    ]
+  },
+  {
+    id: "g_n3_02",
+    pattern: "〜に関して (にかんして)",
+    romaji: "... ni kanshite",
+    level: "N3",
+    meaningBn: "সম্পর্কিত বিষয়ে / ব্যাপারে",
+    meaningEn: "Regarding / Concerning",
+    formation: "Noun + に関して / に関する + Noun",
+    explanationBn: "〜について-এর চেয়ে বেশি ফর্মাল এবং লিখিত ভাষায় বহুল ব্যবহৃত।",
+    examples: [
+      {
+        japanese: "環境問題に関してスピーチをします。",
+        ruby: "<ruby>環境問題<rt>かんきょうもんだい</rt></ruby>に<ruby>関<rt>かん</rt></ruby>してスピーチをします。",
+        reading: "かんきょうもんだい に かんして すぴーち を します",
+        romaji: "Kankyou mondai ni kanshite supiichi o shimasu.",
+        meaningBn: "পরিবেশ সমস্যা সম্পর্কিত বিষয়ে একটি বক্তৃতা দেব।",
+        meaningEn: "I will make a speech regarding environmental issues."
+      }
+    ]
+  },
+  {
+    id: "g_n3_03",
+    pattern: "〜とおりに",
+    romaji: "... toori ni",
+    level: "N3",
+    meaningBn: "যেমনটি বলা/দেখা হয়েছে ঠিক সে অনুযায়ী",
+    meaningEn: "Just as / In accordance with",
+    formation: "Verb [Dictionary/た-form] + とおりに / Noun + どおりに",
+    explanationBn: "কোনো নির্দেশিকা, মানচিত্র বা কথার হুবহু অনুসরণ বোঝাতে ব্যবহৃত হয়।",
+    examples: [
+      {
+        japanese: "私が教えたとおりにやってみてください。",
+        ruby: "<ruby>私<rt>わたし</rt></ruby>が<ruby>教<rt>おし</rt></ruby>えたとおりにやってみてください。",
+        reading: "わたし が おしえた とおり に やって みて ください",
+        romaji: "Watashi ga oshieta toori ni yatte mite kudasai.",
+        meaningBn: "আমি যেভাবে শিখিয়েছি ঠিক সেভাবেই করে দেখুন।",
+        meaningEn: "Please try doing it just as I taught you."
+      }
+    ]
+  },
+  {
+    id: "g_n3_04",
+    pattern: "〜によって / による",
+    romaji: "... ni yotte / ni yoru",
+    level: "N3",
+    meaningBn: "কারণে / মাধ্যমে / ব্যক্তিভেদে ভিন্ন",
+    meaningEn: "By means of / Due to / Depending on",
+    formation: "Noun + によって",
+    explanationBn: "উপায়, কারণ বা বৈচিত্র্য (পার্থক্য) বোঝাতে তিনটি ক্ষেত্রে ব্যবহৃত হয়।",
+    examples: [
+      {
+        japanese: "人によって考え方が違います。",
+        ruby: "<ruby>人<rt>ひと</rt></ruby>によって<ruby>考<rt>かんが</rt></ruby>え<ruby>方<rt>かた</rt></ruby>が<ruby>違<rt>ちが</rt></ruby>います。",
+        reading: "ひと によって かんがえかた が ちがいます",
+        romaji: "Hito ni yotte kangaekata ga chigaimasu.",
+        meaningBn: "মানুষভেদে চিন্তাভাবনা ভিন্ন হয়।",
+        meaningEn: "Ways of thinking vary depending on the person."
+      }
+    ]
+  },
+  {
+    id: "g_n3_05",
+    pattern: "〜に違いない (にちがいない)",
+    romaji: "... ni chigai nai",
+    level: "N3",
+    meaningBn: "অবশ্যই এটাই হবে / কোনো সন্দেহ নেই",
+    meaningEn: "Must be / No doubt that",
+    formation: "Plain form + に違いない (Noun/Na-adj drop だ)",
+    explanationBn: "দৃঢ় আত্মবিশ্বাস ও তথ্যের ওপর ভিত্তি করে নিশ্চিত অনুমান।",
+    examples: [
+      {
+        japanese: "犯人は彼に違いない。",
+        ruby: "<ruby>犯人<rt>はんにん</rt></ruby>は<ruby>彼<rt>かれ</rt></ruby>に<ruby>違<rt>ちが</rt></ruby>いない。",
+        reading: "はんにん は かれ に ちがいない",
+        romaji: "Hannin wa kare ni chigai nai.",
+        meaningBn: "অপরাধী নিশ্চয়ই তিনিই।",
+        meaningEn: "The culprit must surely be him."
+      }
+    ]
+  },
+  {
+    id: "g_n3_06",
+    pattern: "〜最中に (さいちゅうに)",
+    romaji: "... saichuu ni",
+    level: "N3",
+    meaningBn: "ঠিক সেই মুহূর্তে / চরম ব্যস্ততার মাঝে",
+    meaningEn: "Right in the middle of doing",
+    formation: "Verb [ている-form] / Noun の + 最中に",
+    explanationBn: "একটি গুরুত্বপূর্ণ কাজ চলাকালীন হঠাৎ অনাকাঙ্ক্ষিত কোনো ঘটনা ঘটা।",
+    examples: [
+      {
+        japanese: "食事の最中に電話がかかってきた。",
+        ruby: "<ruby>食事<rt>しょくじ</rt></ruby>の<ruby>最中<rt>さいちゅう</rt></ruby>に<ruby>電話<rt>でんわ</rt></ruby>がかかってきた。",
+        reading: "しょくじ の さいちゅう に でんわ が かかって きた",
+        romaji: "Shokuji no saichuu ni denwa ga kakatte kita.",
+        meaningBn: "খাওয়ার ঠিক মাঝখানে একটা ফোন এলো।",
+        meaningEn: "A phone call came right in the middle of a meal."
+      }
+    ]
+  },
+  {
+    id: "g_n3_07",
+    pattern: "〜おかげで / 〜せいで",
+    romaji: "... okage de / sei de",
+    level: "N3",
+    meaningBn: "কারণে (ইতিবাচক: ধন্যবাদ / নেতিবাচক: দোষে)",
+    meaningEn: "Thanks to (positive) / Because of (fault/blame)",
+    formation: "Plain form + おかげで (ভালো) / せいで (খারাপ)",
+    explanationBn: "ভালো ফলাফলের জন্য おかげで এবং খারাপ বা ক্ষতির জন্য せいで বসে।",
+    examples: [
+      {
+        japanese: "先生のおかげで、JLPTに合格できました。",
+        ruby: "<ruby>先生<rt>せんせい</rt></ruby>のおかげで、JLPTに<ruby>合格<rt>ごうかく</rt></ruby>できました。",
+        reading: "せんせい の おかげ で じぇいえるぴーてぃー に ごうかく できました",
+        romaji: "Sensei no okage de, JLPT ni goukaku dekimashita.",
+        meaningBn: "শিক্ষকের অনুগ্রহে JLPT পরীক্ষায় পাস করতে পেরেছি।",
+        meaningEn: "Thanks to the teacher, I was able to pass the JLPT."
+      },
+      {
+        japanese: "雨のせいで、試合が中止になった。",
+        ruby: "<ruby>雨<rt>あめ</rt></ruby>のせいで、<ruby>試合<rt>しあい</rt></ruby>が<ruby>中止<rt>ちゅうし</rt></ruby>になった。",
+        reading: "あめ の せい で しあい が ちゅうし に なった",
+        romaji: "Ame no sei de, shiai ga chuushi ni natta.",
+        meaningBn: "বৃষ্টির দোষে খেলা বাতিল হয়ে গেল।",
+        meaningEn: "Because of the rain, the match was canceled."
+      }
+    ]
+  },
+  {
+    id: "g_n3_08",
+    pattern: "〜ざるを得ない (ざるをえない)",
+    romaji: "... zaru o enai",
+    level: "N3",
+    meaningBn: "বাধ্য হয়ে করতে হচ্ছে / উপায় নেই",
+    meaningEn: "Cannot help but / Have no choice but to",
+    formation: "Verb [ない-stem] + ざるを得ない (する -> せざるを得ない)",
+    explanationBn: "নিজের ইচ্ছা না থাকলেও পারিপার্শ্বিক পরিস্থিতির চাপে কাজটি করতে বাধ্য হওয়া।",
+    examples: [
+      {
+        japanese: "台風が来ているので、旅行を中止せざるを得ない。",
+        ruby: "<ruby>台風<rt>たいふう</rt></ruby>が<ruby>来<rt>き</rt></ruby>ているので、<ruby>旅行<rt>りょこう</rt></ruby>を<ruby>中止<rt>ちゅうし</rt></ruby>せざるを<ruby>得<rt>え</rt></ruby>ない。",
+        reading: "たいふう が きて いる ので りょこう を ちゅうし せざる を えない",
+        romaji: "Taifuu ga kite iru node, ryokou o chuushi sezaru o enai.",
+        meaningBn: "যেহেতু টাইফুন আসছে, তাই ভ্রমণ বাতিল করতে বাধ্য হচ্ছি।",
+        meaningEn: "Since a typhoon is coming, we have no choice but to cancel the trip."
+      }
+    ]
+  }
+];
+
+fs.writeFileSync("data/grammar.json", JSON.stringify(GRAMMAR_DATA, null, 2), "utf8");
+console.log(`Wrote data/grammar.json with ${GRAMMAR_DATA.length} core grammar points!`);

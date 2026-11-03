@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15241f"/>
+      <stop offset="1" stop-color="#0b1116"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9f2d8"/>
+      <stop offset="1" stop-color="#5fd3ac"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+  <rect x="36" y="36" width="440" height="440" rx="96" fill="none" stroke="#8fe7c6" stroke-opacity="0.18" stroke-width="4"/>
+  <text x="256" y="330" font-family="'Noto Sans JP','Yu Gothic','Meiryo',sans-serif" font-size="248" font-weight="700" text-anchor="middle" fill="url(#mint)">漢</text>
+</svg>

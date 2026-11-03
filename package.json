@@ -1,0 +1,9 @@
+{
+  "name": "kanji-dark-jlpt-trainer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A modern dark kanji learning app for JLPT N5–N1.",
+  "scripts": {
+    "start": "node serve.js"
+  }
+}
