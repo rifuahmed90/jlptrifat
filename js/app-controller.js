@@ -170,7 +170,32 @@ function renderBrowse() {
   searchInput.dispatchEvent(new Event('input'));
 }
 
+function renderReview() {
+  const levelData = dataManager.cache.get(appState.currentLevel);
+  const kanjiList = levelData?.kanji || [];
+  if (!kanjiList.length) {
+    renderHome();
+    return;
+  }
+  const currentKanji = kanjiList[appState.quiz.total % kanjiList.length];
+  document.getElementById('view').innerHTML = `
+    <div class="review-container">
+      <h1>Review ${appState.currentLevel.toUpperCase()}</h1>
+      <div class="kanji-card">
+        <span class="kanji-char">${currentKanji.char || currentKanji.character || ''}</span>
+        <span class="kanji-meaning">${currentKanji.meaningBn || currentKanji.meaning || ''}</span>
+      </div>
+      <button data-action="show-browse">Browse Kanji</button>
+    </div>
+  `;
+  setupEventListeners();
+}
+
+function renderQuiz() {
+  renderReview();
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', initApp);
 
-export { initApp, switchLevel, appState, dataManager };
+export { initApp, switchLevel, appState, dataManager, renderReview, renderQuiz };

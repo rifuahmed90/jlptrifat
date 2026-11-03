@@ -4,10 +4,11 @@
     "private": true,
     "description": "A modern, dark kanji learning app for JLPT N5–N1.",
     "scripts": {
-      "start": "node serve.js",
+      "start": "node serve.js 3000",
+      "build": "node scratch/verify-all-features.js",
       "deploy": "vercel --prod",
       "preview": "vercel",
-      "dev": "npm install -g serve && serve -s ."
+      "dev": "node serve.js 3000"
     },
     "devDependencies": {
       "vercel": "^38.0.0"

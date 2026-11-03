@@ -102,6 +102,7 @@ const ICONS = {
   sparkles: '<path d="m12 3 1.7 4.6L18.5 9.3l-4.8 1.7L12 15.6l-1.7-4.6L5.5 9.3l4.8-1.7z"/><path d="m18.4 15.3.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8z"/>',
   trash: '<path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="m6.5 7 .9 13h9.2l.9-13"/><path d="M10 11v5"/><path d="M14 11v5"/>',
   info: '<circle cx="12" cy="12" r="8.7"/><path d="M12 11v5"/><path d="M12 7.6h.01"/>',
+  alert: '<path d="m10.3 3.9-8.5 14.7A2 2 0 0 0 3.5 21.6h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   chevron: '<path d="M9 5.5l6.5 6.5L9 18.5"/>',
   play: '<path d="M8 5.5 18.5 12 8 18.5z"/>',
   arrowRight: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
@@ -1747,6 +1748,57 @@ function startQuiz(level = quizLevel, mode = quizMode, category = quizCategory, 
   }
 }
 
+function answerQuestion(selected) {
+  if (!quiz || !quiz.active || quiz.selected !== null) return;
+  const q = quiz.questions[quiz.index];
+  if (!q) return;
+
+  quiz.selected = selected;
+  const isRight = selected === q.answer;
+  if (isRight) quiz.score += 1;
+
+  state.quiz.total += 1;
+  if (isRight) state.quiz.correct += 1;
+  recordStudy();
+  recordSrsAnswer(q.char, isRight);
+
+  quiz.answers.push({
+    char: q.char,
+    meaning: q.meaning,
+    meaningEn: q.meaningEn,
+    correct: isRight,
+    selected,
+  });
+
+  saveState();
+  render(false);
+
+  clearTimeout(quizTimer);
+  quizTimer = setTimeout(() => {
+    if (!quiz || !quiz.active) return;
+    quiz.index += 1;
+    quiz.selected = null;
+
+    if (quiz.index >= quiz.questions.length) {
+      clearInterval(mockInterval);
+      quiz.active = false;
+      quiz.done = true;
+      if (quiz.mode !== "mock") {
+        state.best = Math.max(state.best, quiz.score);
+      }
+      saveState();
+      render(true);
+      window.scrollTo(0, 0);
+    } else {
+      render(true);
+      const nextQ = quiz.questions[quiz.index];
+      if (quiz.mode === "listening" && nextQ && nextQ.tts) {
+        setTimeout(() => speakJapanese(nextQ.tts), 300);
+      }
+    }
+  }, 900);
+}
+
 function finishMockExam() {
   clearInterval(mockInterval);
   clearTimeout(quizTimer);
@@ -1908,6 +1960,9 @@ function handleAction(event) {
     case "open-search":
       setView("browse");
       focusSearch();
+      break;
+    case "open-browse":
+      setView("browse");
       break;
     case "open-radicals":
       setView("radicals");
@@ -2456,29 +2511,28 @@ function init() {
     });
   }
 
-  const fileInput = document.getElementById("backup-file-input");
-  if (fileInput) {
-    fileInput.addEventListener("change", (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        try {
-          const imported = JSON.parse(evt.target.result);
-          if (!imported || typeof imported !== "object") throw new Error("অবৈধ ফরম্যাট");
-          state = mergeStates(state, imported);
-          saveState();
-          refreshSheet();
-          render(false);
-          snackbar("ব্যাকআপ ফাইল সফলভাবে রিস্টোর হয়েছে!", "check");
-        } catch (err) {
-          snackbar(`ফাইল পড়া যায়নি: ${err.message}`, "x");
-        }
-      };
-      reader.readAsText(file);
-      fileInput.value = "";
-    });
-  }
+  document.addEventListener("change", (e) => {
+    if (!e.target || e.target.id !== "backup-file-input") return;
+    const fileInput = e.target;
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const imported = JSON.parse(evt.target.result);
+        if (!imported || typeof imported !== "object") throw new Error("অবৈধ ফরম্যাট");
+        state = mergeStates(state, imported);
+        saveState();
+        refreshSheet();
+        render(false);
+        snackbar("ব্যাকআপ ফাইল সফলভাবে রিস্টোর হয়েছে!", "check");
+      } catch (err) {
+        snackbar(`ফাইল পড়া যায়নি: ${err.message}`, "x");
+      }
+    };
+    reader.readAsText(file);
+    fileInput.value = "";
+  });
 
   updateTopAvatar();
   applyDisplayPrefs();

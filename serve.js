@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = __dirname;
-const PORT = Number(process.argv[2]) || 8080;
+const PORT = Number(process.argv[2]) || Number(process.env.PORT) || 3000;
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -42,9 +42,11 @@ const server = http.createServer((req, res) => {
       res.end("Not found");
       return;
     }
+    const ext = path.extname(file).toLowerCase();
     res.writeHead(200, {
-      "Content-Type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream",
+      "Content-Type": MIME[ext] || "application/octet-stream",
       "Service-Worker-Allowed": "/",
+      "Cache-Control": "no-cache",
     });
     res.end(data);
   });
@@ -61,7 +63,7 @@ function startServer(port) {
     }
   });
 
-  server.listen(port, () => {
+  server.listen(port, "0.0.0.0", () => {
     console.log(`\n  =======================================`);
     console.log(`  Kanji app is running!`);
     console.log(`  Open in browser: http://localhost:${port}`);

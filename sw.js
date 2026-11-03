@@ -1,5 +1,5 @@
-const CACHE_NAME = 'openjlpt-v2';
-const DATA_CACHE = 'openjlpt-data-v1';
+const CACHE_NAME = 'kanji-dark-v5';
+const DATA_CACHE = 'openjlpt-data-v2';
 
 // Core app shell assets
 const APP_ASSETS = [
@@ -7,10 +7,11 @@ const APP_ASSETS = [
   '/index.html',
   '/css/styles.css',
   '/css/responsive.css',
-  '/js/app.js',
-  '/js/data-loader.js',
+  '/js/firebase-config.js',
+  '/js/firebase-sync.js',
+  '/js/data.js',
   '/js/views.js',
-  '/js/app-controller.js',
+  '/js/app.js',
   '/manifest.json',
   '/icons/icon.svg',
   '/icons/icon-180.png',
@@ -57,12 +58,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: cache-first for app, stale-while-revalidate for data
+// Fetch: network-first for app shell, stale-while-revalidate for data
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
+  // Skip non-GET requests or cross-origin requests
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
 
   // Data files: stale-while-revalidate
   if (url.pathname.startsWith('/data/')) {
@@ -89,24 +90,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App assets: cache-first
+  // App assets: network-first with offline cache fallback
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) return response;
-
-        return fetch(event.request).then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 0 || networkResponse.type !== 'basic') {
-            return networkResponse;
-          }
-
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => cache.put(event.request, responseToCache));
-
-          return networkResponse;
-        }).catch(() => {
-          // Fallback for offline
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
           if (event.request.mode === 'navigate') {
             return caches.match('/index.html');
           }
