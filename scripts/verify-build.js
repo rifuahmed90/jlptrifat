@@ -11,7 +11,7 @@ const ctx = {
   clearTimeout: () => {},
   setInterval: () => 123,
   clearInterval: () => {},
-  window: { scrollTo: () => {}, print: () => {}, focus: () => {} },
+  window: { scrollTo: () => {}, print: () => {}, focus: () => {}, addEventListener: () => {} },
   document: {
     getElementById: () => ({ dataset: {}, classList: { toggle: () => {}, remove: () => {}, add: () => {} }, innerHTML: "", addEventListener: () => {} }),
     querySelectorAll: () => [],

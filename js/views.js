@@ -2938,6 +2938,18 @@ function renderProfile() {
           </span>
           <span class="chev">${icon("chevron", 17)}</span>
         </button>
+        <button class="setting-row" data-action="prompt-install">
+          <span class="setting-icon" style="color:var(--primary)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="3" width="20" height="14" rx="2.5"/><path d="M8 21h8M12 17v4M12 7v5M9 9.5l3 3 3-3"/>
+            </svg>
+          </span>
+          <span class="setting-copy">
+            <strong>Install offline app · অফলাইনে ইনস্টল করুন</strong>
+            <span>পিসি বা মোবাইলে সফটওয়্যার হিসেবে ব্যবহার করুন</span>
+          </span>
+          <span class="chev">${icon("chevron", 17)}</span>
+        </button>
         <button class="setting-row" data-action="about">
           <span class="setting-icon">${icon("info", 16)}</span>
           <span>About this app</span>

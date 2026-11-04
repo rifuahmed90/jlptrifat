@@ -19,7 +19,7 @@
     if ("caches" in window) {
       caches.keys().then(function (names) {
         names.forEach(function (name) {
-          if (name.indexOf("openjlpt-v") === 0 || (name.indexOf("kanji-dark-v") === 0 && name !== "kanji-dark-v20")) caches.delete(name);
+          if (name.indexOf("openjlpt-v") === 0 || (name.indexOf("kanji-dark-v") === 0 && name !== "kanji-dark-v21")) caches.delete(name);
         });
       });
     }
@@ -35,6 +35,12 @@
           <span>JLPT 漢字 trainer</span>
         </div>
       </div>
+      <button class="topbar-install-btn" id="install-app-btn" data-action="prompt-install" title="অফলাইনে ইনস্টল করুন · Install App" aria-label="Install App">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="3" width="20" height="14" rx="2.5"/><path d="M8 21h8M12 17v4M12 7v5M9 9.5l3 3 3-3"/>
+        </svg>
+        <span>ইনস্টল</span>
+      </button>
       <button class="icon-btn topbar-shortcuts" data-action="open-shortcuts" title="কিবোর্ড শর্টকাট (?) · Keyboard shortcuts" aria-label="Keyboard shortcuts">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="2" y="4" width="20" height="16" rx="2.5" />
@@ -230,10 +236,65 @@
     </div>
   </dialog>
 
-  <script src="js/firebase-config.js?v=20"></script>
-  <script src="js/firebase-sync.js?v=20"></script>
-  <script src="js/data.js?v=20"></script>
-  <script src="js/views.js?v=20"></script>
-  <script src="js/app.js?v=20"></script>
+  <dialog class="install-dialog" id="install-dialog" aria-label="Offline App Installation Guide">
+    <div class="shortcuts-head">
+      <h3>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="3" width="20" height="14" rx="2.5"/><path d="M8 21h8M12 17v4M12 7v5M9 9.5l3 3 3-3"/>
+        </svg>
+        <span>অফলাইন অ্যাপ হিসেবে ইনস্টল করুন</span>
+      </h3>
+      <button class="icon-btn" data-action="close-install-guide" aria-label="Close dialog">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="install-dialog-body">
+      <div class="install-status-box">
+        <span class="live-dot"></span>
+        <strong>১০০% অফলাইন ক্যাশ সক্রিয়!</strong>
+        <p>ইন্টারনেট ছাড়াও ২৫৭টি কাঞ্জি, ১৮০০+ শব্দ, স্ট্রোক অ্যানিমেশন ও কুইজ এই ডিভাইসে সরাসরি চলবে।</p>
+      </div>
+
+      <div class="install-platform-item">
+        <div class="install-platform-head">
+          <span>💻</span>
+          <strong>কম্পিউটার বা পিসিতে (Chrome / Edge / Windows / Mac):</strong>
+        </div>
+        <ol class="install-steps">
+          <li>ব্রাউজারের অ্যাড্রেস বারের ডানে (URL-এর একদম শেষে) দেখুন একটি 💻 বা ⬇️ <strong>"Install"</strong> আইকন আছে — সেখানে ক্লিক করুন।</li>
+          <li>অথবা ব্রাউজারের উপরে ডানদিকের ৩টি ডট (<strong>⋮</strong>) মেনুতে যান ➔ <strong>"Save and share"</strong> ➔ <strong>"Install page as app"</strong> চাপুন।</li>
+          <li>ইনস্টল হয়ে গেলে আপনার পিসির ডেক্সটপে আলাদা উইন্ডোতে ফুলস্ক্রিন সফটওয়্যার হিসেবে খুলবে।</li>
+        </ol>
+      </div>
+
+      <div class="install-platform-item">
+        <div class="install-platform-head">
+          <span>📱</span>
+          <strong>অ্যান্ড্রয়েড ফোনে (Android Chrome):</strong>
+        </div>
+        <ol class="install-steps">
+          <li>Chrome ব্রাউজারের উপরের ৩টি ডট (<strong>⋮</strong>) মেনুতে চাপ দিন।</li>
+          <li><strong>"Install app"</strong> অথবা <strong>"Add to Home screen"</strong> চাপুন।</li>
+        </ol>
+      </div>
+
+      <div class="install-platform-item">
+        <div class="install-platform-head">
+          <span>🍎</span>
+          <strong>আইফোন বা আইপ্যাডে (iOS Safari):</strong>
+        </div>
+        <ol class="install-steps">
+          <li>Safari ব্রাউজারের নিচে শেয়ার (<strong>Share ⎋</strong>) আইকনে চাপ দিন।</li>
+          <li>একটু নিচে স্ক্রল করে <strong>"Add to Home Screen"</strong> বেছে নিন।</li>
+        </ol>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="js/firebase-config.js?v=21"></script>
+  <script src="js/firebase-sync.js?v=21"></script>
+  <script src="js/data.js?v=21"></script>
+  <script src="js/views.js?v=21"></script>
+  <script src="js/app.js?v=21"></script>
 </body>
 </html>

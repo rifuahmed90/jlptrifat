@@ -1,12 +1,13 @@
 # 🌸 KanjiFlow — Dark Japanese Kanji & JLPT Trainer (PWA)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![PWA Ready](https://img.shields.io/badge/PWA-100%25%20Offline-teal.svg)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
-[![Deploy to GitHub Pages](https://github.com/actions/deploy-pages/actions/workflows/deploy.yml/badge.svg)](https://github.com/actions/deploy-pages)
-[![JLPT Levels](https://img.shields.io/badge/JLPT-N5%20%7C%20N4%20%7C%20N3%20%7C%20N2%20%7C%20N1-emerald.svg)](#)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-rifuahmed90.github.io%2Fjlptrifat-brightgreen?style=for-the-badge&logo=github)](https://rifuahmed90.github.io/jlptrifat/)
+[![PWA Ready](https://img.shields.io/badge/PWA-100%25%20Offline-teal?style=for-the-badge)](https://rifuahmed90.github.io/jlptrifat/)
+[![JLPT Levels](https://img.shields.io/badge/JLPT-N5%20%7C%20N4%20%7C%20N3%20%7C%20N2%20%7C%20N1-blue?style=for-the-badge)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
-> **বাংলা ও ইংরেজির সমন্বয়ে জাপানি কাঞ্জি, শব্দভাণ্ডার, ব্যাকরণ এবং হাতের লেখা শেখার ১০০% অফলাইন ও ফ্রি আধুনিক PWA অ্যাপ্লিকেশন।**
-> A modern, zero-dependency, AMOLED dark-mode Japanese Kanji and Vocabulary trainer featuring authentic Japanese School Worksheets (漢字練習帳), Spaced Repetition (SRS), interactive stroke animations, and multi-device cloud synchronization.
+> 🚀 **সরাসরি লাইভ ওয়েবসাইট ব্যবহার করুন (Live Demo):**  
+> 👉 [**https://rifuahmed90.github.io/jlptrifat/**](https://rifuahmed90.github.io/jlptrifat/)  
+> *(যেকোনো মোবাইল, ট্যাবলেট বা কম্পিউটারে কোনো ইন্সটলেশন ছাড়াই সরাসরি ব্রাউজারে চলবে এবং চাইলে "Add to Home screen" দিয়ে অফলাইনে অ্যাপ হিসেবে ব্যবহার করা যাবে)*
 
 ---
 
@@ -25,46 +26,23 @@
 
 ---
 
-## 🚀 গিটহাবে আপলোড এবং স্বয়ংক্রিয় ওয়েবসাইট চালু করার নিয়ম (GitHub & Auto Deploy)
+## 🚀 গিটহাব রিপোজিটরি ও লাইভ ওয়েবসাইট লিংক
 
-এই রিপোজিটরিতে **GitHub Actions Workflow (`.github/workflows/deploy.yml`)** এবং **`.nojekyll`** ফাইল আগে থেকেই সাজিয়ে দেওয়া আছে। আপনি কোড পুশ করলেই গিটহাব নিজে নিজেই সম্পূর্ণ ওয়েবসাইট লাইভ হোস্ট করে দেবে!
+- **লাইভ ওয়েবসাইট লিংক (Live App):** [https://rifuahmed90.github.io/jlptrifat/](https://rifuahmed90.github.io/jlptrifat/)
+- **গিটহাব কোড রিপোজিটরি (Source Code):** [https://github.com/rifuahmed90/jlptrifat](https://github.com/rifuahmed90/jlptrifat)
 
-### ধাপ ১: গিটহাবে নতুন রিপোজিটরি তৈরি করুন
-1. [GitHub](https://github.com)-এ লগইন করে **New repository** বাটনে ক্লিক করুন।
-2. রিপোজিটরির নাম দিন (যেমন: `kanjiflow` বা `kanji-trainer`)।
-3. **Public** সিলেক্ট করুন এবং **Create repository** বাটনে ক্লিক করুন।
-
-### ধাপ ২: লোকাল কম্পিউটার থেকে কোড পুশ করুন
-আপনার কম্পিউটারে টার্মিনাল বা Git Bash খুলে প্রজেক্ট ফোল্ডারে নিচের কমান্ডগুলো চালান:
+### কম্পিউটার থেকে গিটহাবে আপডেট পুশ করার কমান্ড:
 
 ```bash
-# গিট ইনিশিয়ালাইজ করুন
-git init
-
-# সব ফাইল যুক্ত করুন
+# সব ফাইল যোগ করুন
 git add .
 
-# প্রথম কমিট দিন
-git commit -m "Initial commit: KanjiFlow PWA with auto GitHub Pages deploy"
+# কমিট দিন
+git commit -m "Update: Added live demo link in README"
 
-# মেইন ব্রাঞ্চ সেট করুন
-git branch -M main
-
-# আপনার গিটহাব রিপোজিটরির ইউআরএল যোগ করুন (আপনার ইউজারনেম দিয়ে রিপ্লেস করুন)
-git remote add origin https://github.com/<YOUR-USERNAME>/<YOUR-REPO-NAME>.git
-
-# গিটহাবে পুশ করুন
-git push -u origin main
+# গিটহাবে পুশ করুন (GitHub Actions নিজে নিজেই সাইট লাইভ আপডেট করে দেবে!)
+git push origin main
 ```
-
-### ধাপ ৩: গিটহাব পেজেস (GitHub Pages) এনাবল করুন (অটো ওয়েবসাইট)
-1. গিটহাবে আপনার রিপোজিটরির **Settings** (সেটিংস) ট্যাবে যান।
-2. বাম পাশের মেনু থেকে **Pages** অপশনে ক্লিক করুন।
-3. **Build and deployment** সেকশনের নিচে **Source** দেখতে পাবেন:
-   - সেখানে ড্রপডাউন থেকে **GitHub Actions** নির্বাচন করুন।
-   *(অথবা আপনি চাইলে **Deploy from a branch** বেছে নিয়ে Branch: `main` ও Folder: `/(root)` দিয়ে Save করতে পারেন)*
-4. ১ থেকে ২ মিনিটের মধ্যে গিটহাব স্বয়ংক্রিয়ভাবে আপনার লাইভ ওয়েবসাইট লিংক জেনারেট করে দেবে!
-   - আপনার সাইটের ঠিকানা হবে: `https://<YOUR-USERNAME>.github.io/<YOUR-REPO-NAME>/`
 
 ---
 

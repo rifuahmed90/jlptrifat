@@ -1,24 +1,24 @@
-const CACHE_NAME = 'kanji-dark-v20';
+const CACHE_NAME = 'kanji-dark-v21';
 const DATA_CACHE = 'openjlpt-data-v2';
 
-// Core app shell assets
+// Core app shell assets (relative paths for GitHub Pages subpath compatibility)
 const APP_ASSETS = [
-  '/',
-  '/index.html',
-  '/css/styles.css',
-  '/css/responsive.css',
-  '/js/firebase-config.js',
-  '/js/firebase-sync.js',
-  '/js/data.js',
-  '/js/views.js',
-  '/js/app.js',
-  '/manifest.json',
-  '/icons/icon.svg',
-  '/icons/icon-180.png',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/icon-maskable.svg',
-  '/icons/icon-maskable-512.png'
+  './',
+  './index.html',
+  './css/styles.css',
+  './css/responsive.css',
+  './js/firebase-config.js',
+  './js/firebase-sync.js',
+  './js/data.js',
+  './js/views.js',
+  './js/app.js',
+  './manifest.json',
+  './icons/icon.svg',
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable.svg',
+  './icons/icon-maskable-512.png'
 ];
 
 // Install: activate immediately so stale caches are never served
@@ -108,7 +108,7 @@ self.addEventListener('fetch', (event) => {
         return caches.match(event.request).then((cached) => {
           if (cached) return cached;
           if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
+            return caches.match('./index.html') || caches.match('./') || caches.match('/index.html') || caches.match('/');
           }
           return new Response('', { status: 503, statusText: 'Offline' });
         });

@@ -213,6 +213,7 @@ let mockInterval = null;
 let sheetChar = null;
 let sheetReturnFocus = null;
 let snackbarTimer = null;
+let deferredInstallPrompt = null;
 
 /* Stroke viewer interactive state */
 let strokeShowNumbers = false;
@@ -2254,6 +2255,34 @@ function closeShortcutsDialog() {
   }
 }
 
+function promptInstallApp() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult && choiceResult.outcome === "accepted") {
+        snackbar("ইনস্টলেশন শুরু হয়েছে...", "check");
+      }
+      deferredInstallPrompt = null;
+    });
+  } else {
+    openInstallGuide();
+  }
+}
+
+function openInstallGuide() {
+  const dialog = document.getElementById("install-dialog");
+  if (dialog && !dialog.open) {
+    dialog.showModal();
+  }
+}
+
+function closeInstallGuide() {
+  const dialog = document.getElementById("install-dialog");
+  if (dialog && dialog.open) {
+    dialog.close();
+  }
+}
+
 function resetProgress() {
   clearTimeout(quizTimer);
   quiz = null;
@@ -2732,6 +2761,15 @@ function handleAction(event) {
     case "close-shortcuts":
       closeShortcutsDialog();
       break;
+    case "prompt-install":
+      promptInstallApp();
+      break;
+    case "open-install-guide":
+      openInstallGuide();
+      break;
+    case "close-install-guide":
+      closeInstallGuide();
+      break;
     case "reset-data": {
       const dialog = document.getElementById("confirm-dialog");
       if (dialog) dialog.showModal();
@@ -2907,12 +2945,17 @@ function handleKeydown(event) {
 
   const inInput = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName) || !!document.activeElement?.isContentEditable;
   const shortcutsDialog = document.getElementById("shortcuts-dialog");
+  const installDialog = document.getElementById("install-dialog");
   const confirmDialog = document.getElementById("confirm-dialog");
 
   // 1. ESCAPE: blurs input, closes modals / sheets, or navigates back
   if (event.key === "Escape") {
     if (inInput) {
       document.activeElement.blur();
+      return;
+    }
+    if (installDialog && installDialog.open) {
+      closeInstallGuide();
       return;
     }
     if (shortcutsDialog && shortcutsDialog.open) {
@@ -3593,6 +3636,29 @@ function init() {
       const outside = event.clientX < rect.left || event.clientX > rect.right
         || event.clientY < rect.top || event.clientY > rect.bottom;
       if (outside) shortcutsDialog.close();
+    });
+  }
+
+  const installDialog = document.getElementById("install-dialog");
+  if (installDialog) {
+    installDialog.addEventListener("click", (event) => {
+      if (event.target !== installDialog) return;
+      const rect = installDialog.getBoundingClientRect();
+      const outside = event.clientX < rect.left || event.clientX > rect.right
+        || event.clientY < rect.top || event.clientY > rect.bottom;
+      if (outside) installDialog.close();
+    });
+  }
+
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      snackbar("✓ KanjiFlow অ্যাপ আপনার ডিভাইসে ইনস্টল সম্পন্ন হয়েছে!", "check");
     });
   }
 
