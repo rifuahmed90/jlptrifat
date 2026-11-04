@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kanji-dark-v5';
+const CACHE_NAME = 'kanji-dark-v20';
 const DATA_CACHE = 'openjlpt-data-v2';
 
 // Core app shell assets
@@ -21,40 +21,44 @@ const APP_ASSETS = [
   '/icons/icon-maskable-512.png'
 ];
 
-// Data files to cache for offline use (lazy loaded)
-const DATA_ASSETS = [
-  '/data/n5.json',
-  '/data/n4.json',
-  '/data/n3.json',
-  '/data/n2.json',
-  '/data/n1.json',
-  '/data/radicals.json',
-  '/data/grammar.json'
-];
-
-// Install: cache app shell + data files
+// Install: activate immediately so stale caches are never served
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(APP_ASSETS))
-      .then(() => caches.open(DATA_CACHE))
-      .then(cache => cache.addAll(DATA_ASSETS))
-      .then(() => self.skipWaiting())
+      .catch(() => {})
   );
 });
 
-// Activate: clean old caches
+// Activate: clean old caches and refresh any client running stale openjlpt-v2 HTML
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    (async () => {
+      const cacheNames = await caches.keys();
+      let hadLegacyCache = false;
+      await Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME && cacheName !== DATA_CACHE) {
+            if (cacheName.startsWith('openjlpt-')) {
+              hadLegacyCache = true;
+            }
             return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim())
+      await self.clients.claim();
+      if (hadLegacyCache) {
+        const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const client of windowClients) {
+          try {
+            await client.navigate(client.url);
+          } catch (e) {
+            // ignore navigation error
+          }
+        }
+      }
+    })()
   );
 });
 

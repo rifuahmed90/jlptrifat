@@ -1,8 +1,82 @@
 /* View renderers. Called by app.js after state is loaded. */
 
-const KANJI_CATEGORIES = Object.entries(TAXONOMY.kanjiCategories).map(([id, bn]) => ({ id, bn }));
-const WORD_TOPICS = Object.entries(TAXONOMY.wordTopics).map(([id, bn]) => ({ id, bn }));
-const PARTS_OF_SPEECH = Object.entries(TAXONOMY.partsOfSpeech).map(([id, bn]) => ({ id, bn }));
+if (typeof TAXONOMY === "undefined") {
+  globalThis.TAXONOMY = {
+    kanjiCategories: {
+      numbers: "সংখ্যা",
+      time: "সময় ও তারিখ",
+      money: "টাকা-পয়সা",
+      people: "মানুষ ও পরিবার",
+      nature: "প্রকৃতি ও আবহাওয়া",
+      position: "দিক ও অবস্থান",
+      study: "পড়াশোনা ও ভাষা",
+      actions: "ক্রিয়া",
+      adjectives: "আকার ও রং",
+      daily_basics: "দৈনন্দিন মৌলিক",
+      general: "সাধারণ",
+    },
+    wordTopics: {
+      numbers: "সংখ্যা",
+      counting: "গোনার শব্দ",
+      time: "সময়",
+      calendar: "মাস, দিন ও বার",
+      people_family: "মানুষ ও পরিবার",
+      nature_weather: "প্রকৃতি ও আবহাওয়া",
+      direction_position: "দিক ও অবস্থান",
+      places: "জায়গা ও দেশ",
+      transport: "যানবাহন ও যাতায়াত",
+      money_shopping: "টাকা ও কেনাকাটা",
+      school_study: "স্কুল ও পড়াশোনা",
+      language: "ভাষা, পড়া ও লেখা",
+      food_drink: "খাবার ও পানীয়",
+      things_clothes: "জিনিসপত্র ও পোশাক",
+      health_feelings: "স্বাস্থ্য ও অনুভূতি",
+      work: "কাজ ও অফিস",
+      action_verbs: "ক্রিয়া (কাজের শব্দ)",
+      adjectives: "বিশেষণ (বর্ণনার শব্দ)",
+      expressions: "দৈনন্দিন কথাবার্তা",
+    },
+    situations: {
+      school: "স্কুল / ক্লাস",
+      shop: "দোকান / কেনাকাটা",
+      station: "স্টেশন / যাতায়াত",
+      restaurant: "রেস্টুরেন্ট / খাবার",
+      job: "অফিস / কাজ",
+      hospital: "হাসপাতাল",
+      home: "ঘর",
+      travel: "ভ্রমণ",
+      news: "খবর",
+      outdoors: "বাইরে / প্রকৃতি",
+      family_friends: "পরিবার ও বন্ধু",
+      daily_life: "দৈনন্দিন জীবন",
+    },
+    partsOfSpeech: {
+      noun: "বিশেষ্য",
+      verb: "ক্রিয়া",
+      i_adjective: "い-বিশেষণ",
+      na_adjective: "な-বিশেষণ",
+      adverb: "ক্রিয়াবিশেষণ",
+      number: "সংখ্যা",
+      counter: "গোনার/তারিখ/সময়ের শব্দ",
+      proper_noun: "নামবাচক",
+      pronoun: "সর্বনাম",
+      phrase: "বাক্যাংশ",
+    },
+    wordType: {
+      On: "On'yomi (চীনা উচ্চারণ)",
+      Kun: "Kun'yomi (জাপানি উচ্চারণ)",
+      Special: "বিশেষ উচ্চারণ",
+    },
+  };
+}
+if (typeof VOCAB === "undefined") globalThis.VOCAB = {};
+if (typeof KANJI === "undefined") globalThis.KANJI = [];
+if (typeof RADICALS === "undefined") globalThis.RADICALS = [];
+if (typeof GRAMMAR === "undefined") globalThis.GRAMMAR = [];
+
+const KANJI_CATEGORIES = Object.entries(TAXONOMY.kanjiCategories || {}).map(([id, bn]) => ({ id, bn }));
+const WORD_TOPICS = Object.entries(TAXONOMY.wordTopics || {}).map(([id, bn]) => ({ id, bn }));
+const PARTS_OF_SPEECH = Object.entries(TAXONOMY.partsOfSpeech || {}).map(([id, bn]) => ({ id, bn }));
 const SITUATION_EXTRA = {
   exam: "পরীক্ষা",
   nature: "প্রকৃতি",
@@ -130,14 +204,16 @@ function radicalSearchBlob(r) {
 }
 
 function searchBlob(k) {
+  if (k._searchBlob !== undefined) return k._searchBlob;
   const vocabText = vocabEntries(k).flatMap((v) => [v.word, v.reading, v.romaji, v.meaning, v.meaningBn, v.meaningEn]);
   const exampleText = (k.examples || []).flatMap((ex) => [ex.japanese, ex.reading, ex.romaji, ex.meaningBn, ex.meaningEn]);
-  return [
+  k._searchBlob = [
     k.char, k.meaning, k.meaningBn, k.meaningEn, k.level, k.radical,
-    ...k.on, ...k.kun,
-    k.example.word, k.example.reading, k.example.meaning, k.example.meaningBn,
+    ...(k.on || []), ...(k.kun || []),
+    k.example?.word, k.example?.reading, k.example?.meaning, k.example?.meaningBn,
     ...vocabText, ...exampleText,
-  ].join(" ").toLowerCase();
+  ].filter(Boolean).join(" ").toLowerCase();
+  return k._searchBlob;
 }
 
 function strokesText(n) {
@@ -160,31 +236,50 @@ function levelRows() {
   }).join("");
 }
 
-function renderHome() {
+function studyLevelSelectorMarkup(compact = false) {
+  const selected = (typeof activeStudyLevels === "function") ? activeStudyLevels() : ["N5", "N4"];
+  const allLevels = ["N5", "N4", "N3", "N2", "N1"];
+  return `
+    <div class="hero-level-bar ${compact ? "compact" : "full"}" role="group" aria-label="Target JLPT study levels">
+      <span class="hlb-label">${icon("target", 13)} <span>আমার লক্ষ্য (${selected.join("·")}):</span></span>
+      <div class="hlb-chips">
+        ${allLevels.map((lvl) => {
+          const on = selected.includes(lvl);
+          return `
+            <button class="hlb-chip ${on ? "active " + lvl : ""}" data-action="toggle-study-level" data-level="${lvl}" aria-pressed="${on}" title="${on ? `${lvl} চালু আছে (বন্ধ করতে চাপুন)` : `${lvl} যোগ করতে চাপুন`}">
+              <span class="hlb-check">${on ? "✓" : "+"}</span>
+              <span>${lvl}</span>
+            </button>`;
+        }).join("")}
+      </div>
+    </div>`;
+}
+
+function heroCardMarkup() {
   const today = todayKanji();
-  const learned = learnedList();
-  const pct = Math.round((learned.length / KANJI.length) * 100);
-  const remaining = KANJI.length - learned.length;
-  const upcoming = KANJI.filter((k) => !state.learned.includes(k.char)).slice(0, 8);
   const isFav = state.favorites.includes(today.char);
   const isLearned = state.learned.includes(today.char);
-  const streakCount = streak();
-  const dueList = (typeof srsDueKanji === "function") ? srsDueKanji() : [];
+  const autoOn = typeof heroAutoRotate !== "undefined" ? heroAutoRotate : true;
 
   return `
-    <div class="home-head">
-      <span class="eyebrow">${greetingText()}</span>
-      <h2>Your daily kanji</h2>
-      <p>Small steps, every single day.</p>
-    </div>
-
-    <section class="hero-card">
+    <section class="hero-card" id="home-hero-card">
       <div class="hero-head">
-        <span class="eyebrow"><span class="live-dot"></span>Today's kanji</span>
-        <button class="icon-btn ${isFav ? "active" : ""}" data-action="fav" data-char="${today.char}" aria-label="${isFav ? "Remove from favorites" : "Add to favorites"}">
-          ${icon(isFav ? "starFilled" : "star", 20)}
-        </button>
+        <span class="eyebrow"><span class="live-dot"></span>Today's kanji · আজকের কাঞ্জি</span>
+        <div class="hero-head-tools">
+          <button class="hero-pill-btn ${autoOn ? "active" : ""}" data-action="toggle-hero-auto" title="২০ সেকেন্ড পর পর স্বয়ংক্রিয়ভাবে নতুন কাঞ্জি দেখাবে" aria-pressed="${autoOn}">
+            <span class="hero-auto-dot"></span>
+            <span>${autoOn ? "Auto · অন" : "Auto · অফ"}</span>
+          </button>
+          <button class="hero-pill-btn" data-action="next-daily-kanji" title="নতুন আরেকটি কাঞ্জি দেখুন" aria-label="Next kanji">
+            ${icon("refresh", 13)}
+            <span>বদলান</span>
+          </button>
+          <button class="icon-btn ${isFav ? "active" : ""}" data-action="fav" data-char="${today.char}" aria-label="${isFav ? "Remove from favorites" : "Add to favorites"}">
+            ${icon(isFav ? "starFilled" : "star", 20)}
+          </button>
+        </div>
       </div>
+      ${studyLevelSelectorMarkup(true)}
       <button class="hero-tap" data-action="open-kanji" data-char="${today.char}" aria-label="Open details for ${today.char}">
         <span class="hero-char" lang="ja">${today.char}</span>
         <span class="hero-info">
@@ -194,20 +289,77 @@ function renderHome() {
           <span class="hero-tags">
             <span class="level-badge ${today.level}">JLPT ${today.level}</span>
             <span class="mini">${strokesText(today.strokes)}</span>
-            ${isLearned ? `<span class="level-badge N5">Learned</span>` : ""}
+            ${isLearned ? `<span class="level-badge N5">Learned</span>` : `<span class="mini hero-unlearned-tag">নতুন কাঞ্জি</span>`}
           </span>
         </span>
       </button>
       <div class="hero-actions">
         <button class="btn primary" data-action="open-kanji" data-char="${today.char}">
-          ${icon("book", 18)} Study
+          ${icon("book", 18)} Study · বিস্তারিত
         </button>
-        <button class="btn ${isLearned ? "tonal" : "ghost"}" data-action="toggle-learned" data-char="${today.char}">
-          ${isLearned ? `${icon("check", 17)} Learned` : `${icon("plus", 17)} Mark learned`}
+        <button class="btn ${isLearned ? "tonal" : "ghost"}" data-action="hero-learn" data-char="${today.char}">
+          ${isLearned ? `${icon("check", 17)} Learned · পরেরটি` : `${icon("check", 17)} শিখলাম · পরেরটি`}
+        </button>
+        <button class="btn ghost hero-next-btn" data-action="next-daily-kanji" aria-label="Show another kanji" title="পরের নতুন কাঞ্জি আনুন">
+          ${icon("refresh", 17)}
         </button>
       </div>
       <div class="hero-watermark" lang="ja" aria-hidden="true">${today.char}</div>
-    </section>
+    </section>`;
+}
+
+function homeAccountBarMarkup() {
+  const fb = window.firebaseSync;
+  const user = fb ? fb.currentUser : null;
+
+  // Once signed in with Google, hide the banner on Home (name is in the header & photo is in topbar)
+  if (user) {
+    return "";
+  }
+
+  return `
+    <div class="home-account-bar">
+      <div class="hab-user">
+        <span class="hab-google-badge">${icon("google", 16)}</span>
+        <div class="hab-copy">
+          <strong>Google দিয়ে সাইন-ইন করুন</strong>
+          <span>আপনার নাম দেখাতে ও সব ডিভাইসে কাঞ্জি প্রগ্রেস অটো-সিঙ্ক করতে কানেক্ট করুন</span>
+        </div>
+      </div>
+      <div class="hab-actions">
+        <button class="btn google-mini-btn" data-action="google-signin">
+          ${icon("google", 14)} <span>Continue with Google</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+function renderHome() {
+  const learned = learnedList();
+  const selectedLevels = (typeof activeStudyLevels === "function") ? activeStudyLevels() : ["N5", "N4"];
+  const targetSet = new Set(selectedLevels);
+  const targetTotalKanji = KANJI.filter((k) => targetSet.has(k.level));
+  const targetLearnedCount = targetTotalKanji.filter((k) => state.learned.includes(k.char)).length;
+  const totalPoolLen = targetTotalKanji.length || KANJI.length;
+  const pct = Math.round((targetLearnedCount / totalPoolLen) * 100);
+  const remaining = Math.max(0, totalPoolLen - targetLearnedCount);
+  const upcoming = targetTotalKanji.filter((k) => !state.learned.includes(k.char)).slice(0, 8);
+  const streakCount = streak();
+  const dueList = (typeof srsDueKanji === "function") ? srsDueKanji() : [];
+  const user = window.firebaseSync?.currentUser;
+  const fullName = (user && user.displayName) || (state && state.userName) || "";
+  const firstName = fullName.trim() ? fullName.trim().split(/\s+/)[0] : "";
+
+  return `
+    <div class="home-head">
+      <span class="eyebrow">${greetingText()}${firstName ? ` · ${escapeHtml(firstName)}` : ""}</span>
+      <h2>${firstName ? `${escapeHtml(firstName)}'s daily kanji` : "Your daily kanji"}</h2>
+      <p>${firstName ? `স্বাগতম ${escapeHtml(fullName)} — আপনার নির্বাচিত ${selectedLevels.join(" + ")} লেভেল থেকে আজকের কাঞ্জি দেখানো হচ্ছে।` : `আপনার নির্বাচিত ${selectedLevels.join(" + ")} লেভেল থেকে আজকের কাঞ্জি দেখানো হচ্ছে।`}</p>
+    </div>
+
+    ${homeAccountBarMarkup()}
+
+    ${heroCardMarkup()}
 
     <div class="stat-row">
       <div class="stat"><span class="stat-value">${learned.length}</span><span class="stat-label">Learned</span></div>
@@ -268,18 +420,18 @@ function renderHome() {
 
     <section class="progress-card">
       <div class="ring" style="--p:${pct}">
-        <div class="ring-inner"><strong>${pct}%</strong><span>of ${KANJI.length}</span></div>
+        <div class="ring-inner"><strong>${pct}%</strong><span>of ${totalPoolLen}</span></div>
       </div>
       <div class="progress-copy">
-        <h3>${remaining === 0 ? "All kanji learned!" : "Keep the momentum"}</h3>
-        <p>${remaining === 0 ? "You have mastered the whole deck. Time to review." : `${remaining} kanji left to master. One card at a time.`}</p>
+        <h3>${remaining === 0 ? `${selectedLevels.join(" + ")} সম্পন্ন!` : `লক্ষ্য: ${selectedLevels.join(" + ")}`}</h3>
+        <p>${remaining === 0 ? "আপনার নির্বাচিত লেভেলের সব কাঞ্জি শেখা শেষ! নতুন লেভেল যোগ করুন।" : `${selectedLevels.join(" ও ")} লেভেলে আরও ${remaining}টি কাঞ্জি বাকি আছে (${targetLearnedCount}/${totalPoolLen})।`}</p>
         <span class="level-badge N4">${currentRank(learned.length)}</span>
       </div>
     </section>
 
     <section class="section up-next-section">
       <div class="section-head">
-        <h3>Up next</h3>
+        <h3>Up next (${selectedLevels.join(" · ")})</h3>
         <button class="text-link" data-action="see-all">See all ${icon("arrowRight", 14)}</button>
       </div>
       ${upcoming.length ? `
@@ -294,7 +446,7 @@ function renderHome() {
         <div class="empty-state">
           <span class="empty-emoji">完</span>
           <strong>Deck complete</strong>
-          <p>Every kanji is marked as learned. Open the library for a review any time.</p>
+          <p>Every kanji in your selected levels is marked as learned.</p>
         </div>`}
     </section>
 
@@ -310,9 +462,11 @@ function renderHome() {
 
 function filteredKanji() {
   const q = searchQuery.trim().toLowerCase();
+  const goalSet = new Set((typeof activeStudyLevels === "function") ? activeStudyLevels() : ["N5", "N4"]);
   return KANJI.filter((k) => {
     if (browseFilter === "saved" && !state.favorites.includes(k.char)) return false;
-    if (browseFilter !== "all" && browseFilter !== "saved" && k.level !== browseFilter) return false;
+    if (browseFilter === "goal" && !goalSet.has(k.level)) return false;
+    if (browseFilter !== "all" && browseFilter !== "saved" && browseFilter !== "goal" && k.level !== browseFilter) return false;
     if (browseCategory !== "all" && !(k.categories || []).includes(browseCategory)) return false;
     if (!q) return true;
     const haystack = searchBlob(k);
@@ -320,8 +474,47 @@ function filteredKanji() {
   });
 }
 
-function kanjiGridMarkup() {
-  const list = filteredKanji();
+function kanjiCardMarkup(k, idx = 0) {
+  const fav = state.favorites.includes(k.char);
+  const learned = state.learned.includes(k.char);
+  const srs = (learned && typeof srsInfoForChar === "function") ? srsInfoForChar(k.char) : null;
+  const delay = Math.min(idx % 24, 18) * 12;
+  return `
+    <button class="kanji-card kc-reveal" style="--kc-delay:${delay}ms" data-action="open-kanji" data-char="${k.char}" aria-label="${k.char}, ${primaryMeaning(k)}${secondaryMeaning(k) ? ", " + secondaryMeaning(k) : ""}, JLPT ${k.level}">
+      <span class="kc-top">
+        <span class="level-dot ${k.level}"></span>
+        ${srs ? `<span class="kc-srs-badge ${srs.color}">${srs.nameBn || `ধাপ ${srs.stage}`}</span>` : ""}
+        ${fav ? `<span class="kc-fav">${icon("starFilled", 12)}</span>` : ""}
+      </span>
+      <span class="kc-char" lang="ja">${k.char}</span>
+      <span class="kc-meaning">${primaryMeaning(k)}</span>
+      ${learned ? `<span class="kc-learned">${icon("check", 10)}</span>` : ""}
+    </button>`;
+}
+
+function kanjiSkeletonCardMarkup(idx = 0, extraClass = "") {
+  const delay = (idx % 12) * 40;
+  return `
+    <div class="kanji-card kanji-skeleton ${extraClass}" style="--sk-delay:${delay}ms" aria-hidden="true">
+      <span class="kc-top">
+        <span class="sk-bone sk-dot"></span>
+        <span class="sk-bone sk-badge"></span>
+      </span>
+      <span class="sk-bone sk-char"></span>
+      <span class="sk-bone sk-meaning"></span>
+    </div>`;
+}
+
+function kanjiSkeletonMarkup(count = 24, extraClass = "") {
+  const cards = [];
+  for (let i = 0; i < count; i++) {
+    cards.push(kanjiSkeletonCardMarkup(i, extraClass));
+  }
+  return cards.join("");
+}
+
+function kanjiGridMarkup(fullList) {
+  const list = fullList || filteredKanji();
   if (!list.length) {
     const saved = browseFilter === "saved";
     return `
@@ -331,31 +524,85 @@ function kanjiGridMarkup() {
         <p>${saved ? "Tap the star on any kanji to build your own review deck." : browseCategory !== "all" ? "Try another category, level or search word." : "Try another word, reading or level filter."}</p>
       </div>`;
   }
-  return list.map((k) => {
-    const fav = state.favorites.includes(k.char);
-    const learned = state.learned.includes(k.char);
-    const srs = (learned && typeof srsInfoForChar === "function") ? srsInfoForChar(k.char) : null;
-    return `
-      <button class="kanji-card" data-action="open-kanji" data-char="${k.char}" aria-label="${k.char}, ${primaryMeaning(k)}${secondaryMeaning(k) ? ", " + secondaryMeaning(k) : ""}, JLPT ${k.level}">
-        <span class="kc-top">
-          <span class="level-dot ${k.level}"></span>
-          ${srs ? `<span class="kc-srs-badge ${srs.color}">${srs.nameBn || `ধাপ ${srs.stage}`}</span>` : ""}
-          ${fav ? `<span class="kc-fav">${icon("starFilled", 12)}</span>` : ""}
-        </span>
-        <span class="kc-char" lang="ja">${k.char}</span>
-        <span class="kc-meaning">${primaryMeaning(k)}</span>
-        ${learned ? `<span class="kc-learned">${icon("check", 10)}</span>` : ""}
-      </button>`;
-  }).join("");
+  const limit = (typeof kanjiLimit === "number" && kanjiLimit > 0) ? kanjiLimit : 72;
+  const shown = list.slice(0, limit);
+  return shown.map((k, idx) => kanjiCardMarkup(k, idx)).join("");
 }
 
-function renderKanjiGrid() {
-  const grid = document.getElementById("kanji-grid");
+function syncKanjiPaginationUI(list) {
+  const limit = (typeof kanjiLimit === "number" && kanjiLimit > 0) ? kanjiLimit : 72;
+  const shownCount = Math.min(list.length, limit);
+  const remaining = Math.max(0, list.length - shownCount);
+
   const count = document.getElementById("kanji-count");
-  if (grid) grid.innerHTML = kanjiGridMarkup();
   if (count) {
-    const n = filteredKanji().length;
-    count.textContent = `${n} kanji${searchQuery ? " found" : ""}`;
+    count.textContent = list.length > shownCount
+      ? `Showing ${shownCount} of ${list.length} kanji${searchQuery ? " found" : ""}`
+      : `${list.length} kanji${searchQuery ? " found" : ""}`;
+  }
+
+  const topicCountEl = document.getElementById("kanji-topic-count");
+  if (topicCountEl) {
+    const catCount = KANJI.filter((k) => browseCategory === "all" || (k.categories || []).includes(browseCategory)).length;
+    topicCountEl.textContent = `${catCount} kanji`;
+  }
+
+  const wrap = document.getElementById("kanji-more-wrap");
+  if (wrap) {
+    wrap.classList.toggle("hidden", remaining === 0);
+  }
+  const shownLabel = document.getElementById("kanji-shown-label");
+  if (shownLabel) {
+    shownLabel.textContent = `${shownCount} / ${list.length} kanji loaded`;
+  }
+  const moreBtn = document.getElementById("kanji-more");
+  if (moreBtn) {
+    const nextBatch = Math.min(72, remaining);
+    moreBtn.disabled = false;
+    moreBtn.innerHTML = `<span>আরও ${nextBatch}টি কাঞ্জি দেখুন (${remaining}টি বাকি)</span>${icon("arrowRight", 15)}`;
+  }
+}
+
+let kanjiHydrateTimer = null;
+
+function scheduleKanjiHydration(delayMs = 150) {
+  if (kanjiHydrateTimer) {
+    clearTimeout(kanjiHydrateTimer);
+    kanjiHydrateTimer = null;
+  }
+  kanjiHydrateTimer = setTimeout(() => {
+    kanjiHydrateTimer = null;
+    const grid = document.getElementById("kanji-grid");
+    if (!grid) return;
+    const list = filteredKanji();
+    grid.innerHTML = kanjiGridMarkup(list);
+    grid.setAttribute("aria-busy", "false");
+    syncKanjiPaginationUI(list);
+    if (typeof setupKanjiInfiniteScroll === "function") {
+      setupKanjiInfiniteScroll();
+    }
+  }, delayMs);
+}
+
+function renderKanjiGrid(options = {}) {
+  const list = filteredKanji();
+  const grid = document.getElementById("kanji-grid");
+  const useSkeleton = options.showSkeleton !== false && list.length > 0 && typeof window !== "undefined";
+  if (grid) {
+    if (useSkeleton) {
+      const skCount = Math.min(24, list.length);
+      grid.setAttribute("aria-busy", "true");
+      grid.innerHTML = kanjiSkeletonMarkup(skCount);
+      syncKanjiPaginationUI(list);
+      scheduleKanjiHydration(typeof options.delay === "number" ? options.delay : 140);
+      return;
+    }
+    grid.setAttribute("aria-busy", "false");
+    grid.innerHTML = kanjiGridMarkup(list);
+  }
+  syncKanjiPaginationUI(list);
+  if (typeof setupKanjiInfiniteScroll === "function") {
+    setupKanjiInfiniteScroll();
   }
 }
 
@@ -370,7 +617,17 @@ const FILTERS = [
 ];
 
 function renderBrowse() {
+  const list = filteredKanji();
+  const limit = (typeof kanjiLimit === "number" && kanjiLimit > 0) ? kanjiLimit : 72;
+  const shownCount = Math.min(list.length, limit);
+  const remaining = Math.max(0, list.length - shownCount);
+  const nextBatch = Math.min(72, remaining);
   const categoryCount = KANJI.filter((k) => browseCategory === "all" || (k.categories || []).includes(browseCategory)).length;
+  const useInitialSkeleton = list.length > 0 && typeof requestAnimationFrame === "function";
+  if (useInitialSkeleton) {
+    scheduleKanjiHydration(160);
+  }
+
 
   return `
     <div class="view-head">
@@ -379,94 +636,139 @@ function renderBrowse() {
       <p>Browse all ${KANJI.length} entries, filter by level or topic, or search by Bengali / English meaning, reading or vocabulary.</p>
     </div>
 
-    <div class="ref-entries">
-      <button class="ref-entry" data-action="open-radicals">
-        <span class="ref-entry-glyph" aria-hidden="true">部</span>
-        <span class="ref-entry-copy">
-          <strong>Radicals (部首)</strong>
-          <span>${RADICALS.length} with Bengali meanings</span>
-        </span>
-        ${icon("arrowRight", 16)}
-      </button>
-      <button class="ref-entry words" data-action="open-words">
-        <span class="ref-entry-glyph" aria-hidden="true">語</span>
-        <span class="ref-entry-copy">
-          <strong>Words (単語)</strong>
-          <span>${WORD_LIST.length} vocabulary words</span>
-        </span>
-        ${icon("arrowRight", 16)}
-      </button>
-      <button class="ref-entry grammar" data-action="open-grammar">
-        <span class="ref-entry-glyph" aria-hidden="true">文</span>
-        <span class="ref-entry-copy">
-          <strong>Grammar (文法)</strong>
-          <span>N5–N3 বাংলা ব্যাকরণ সহায়িকা</span>
-        </span>
-        ${icon("arrowRight", 16)}
-      </button>
-      <button class="ref-entry reader" data-action="open-reader">
-        <span class="ref-entry-glyph" aria-hidden="true">読</span>
-        <span class="ref-entry-copy">
-          <strong>Text Reader (読解)</strong>
-          <span>ফুরিগানা ও কাঞ্জি অ্যানালাইজার</span>
-        </span>
-        ${icon("arrowRight", 16)}
-      </button>
-      <button class="ref-entry printable" data-action="open-printable">
-        <span class="ref-entry-glyph" aria-hidden="true">練</span>
-        <span class="ref-entry-copy">
-          <strong>Printable Grid (原稿用紙)</strong>
-          <span>হাতের লেখা অনুশীলনের PDF শিট</span>
-        </span>
-        ${icon("arrowRight", 16)}
-      </button>
-    </div>
-
-    <div class="search-field">
-      ${icon("search", 20)}
-      <input id="kanji-search" type="search" value="${escapeHtml(searchQuery)}" placeholder="Search kanji, meaning, reading…" autocomplete="off" spellcheck="false" aria-label="Search kanji" />
-      <button class="search-clear ${searchQuery ? "" : "hidden"}" data-action="clear-search" aria-label="Clear search">${icon("x", 16)}</button>
-    </div>
-
-    <div class="chips" role="tablist" aria-label="Filter kanji">
-      ${FILTERS.map((f) => `
-        <button class="chip ${browseFilter === f.id ? "active" : ""}" data-action="filter" data-filter="${f.id}" role="tab" aria-selected="${browseFilter === f.id}">
-          ${f.starred ? icon("star", 14) : ""}${f.label}
-        </button>`).join("")}
-    </div>
-
-    <div class="filter-block">
-      <div class="filter-block-head">
-        <span class="eyebrow">Topic</span>
-        <span class="small muted">${categoryCount} kanji</span>
+    <section class="ref-hub" aria-label="Study tools and reference guides">
+      <div class="ref-hub-head">
+        <span class="eyebrow">Study Toolkit · সহায়িকা ও টুলস</span>
+        <span class="ref-hub-sub">5 interactive modules</span>
       </div>
-      <div class="chips soft-chips" role="group" aria-label="Filter by topic">
-        <button class="chip ${browseCategory === "all" ? "active" : ""}" data-action="filter-category" data-category="all" aria-pressed="${browseCategory === "all"}">All topics</button>
-        ${KANJI_CATEGORIES.map((c) => `
-          <button class="chip ${browseCategory === c.id ? "active" : ""}" data-action="filter-category" data-category="${c.id}" aria-pressed="${browseCategory === c.id}">
-            ${escapeHtml(c.bn)}
-          </button>`).join("")}
+      <div class="ref-entries">
+        <button class="ref-entry radicals" data-action="open-radicals">
+          <span class="ref-entry-glyph" lang="ja" aria-hidden="true">部</span>
+          <span class="ref-entry-copy">
+            <span class="ref-entry-title-row">
+              <strong>Radicals</strong>
+              <span class="ref-entry-pill" lang="ja">部首 · ${RADICALS.length}</span>
+            </span>
+            <span class="ref-entry-sub">${RADICALS.length} radicals with Bengali meanings</span>
+          </span>
+          <span class="ref-entry-arrow" aria-hidden="true">${icon("arrowRight", 16)}</span>
+        </button>
+
+        <button class="ref-entry words" data-action="open-words">
+          <span class="ref-entry-glyph" lang="ja" aria-hidden="true">語</span>
+          <span class="ref-entry-copy">
+            <span class="ref-entry-title-row">
+              <strong>Words</strong>
+              <span class="ref-entry-pill" lang="ja">単語 · ${WORD_LIST.length.toLocaleString()}</span>
+            </span>
+            <span class="ref-entry-sub">${WORD_LIST.length.toLocaleString()} vocabulary words &amp; audio</span>
+          </span>
+          <span class="ref-entry-arrow" aria-hidden="true">${icon("arrowRight", 16)}</span>
+        </button>
+
+        <button class="ref-entry grammar" data-action="open-grammar">
+          <span class="ref-entry-glyph" lang="ja" aria-hidden="true">文</span>
+          <span class="ref-entry-copy">
+            <span class="ref-entry-title-row">
+              <strong>Grammar</strong>
+              <span class="ref-entry-pill" lang="ja">文法 · N5–N3</span>
+            </span>
+            <span class="ref-entry-sub">N5–N3 বাংলা ব্যাকরণ সহায়িকা</span>
+          </span>
+          <span class="ref-entry-arrow" aria-hidden="true">${icon("arrowRight", 16)}</span>
+        </button>
+
+        <button class="ref-entry reader" data-action="open-reader">
+          <span class="ref-entry-glyph" lang="ja" aria-hidden="true">読</span>
+          <span class="ref-entry-copy">
+            <span class="ref-entry-title-row">
+              <strong>Text Reader</strong>
+              <span class="ref-entry-pill" lang="ja">読解 · Analyzer</span>
+            </span>
+            <span class="ref-entry-sub">ফুরিগানা ও কাঞ্জি অ্যানালাইজার</span>
+          </span>
+          <span class="ref-entry-arrow" aria-hidden="true">${icon("arrowRight", 16)}</span>
+        </button>
+
+        <button class="ref-entry printable" data-action="open-printable">
+          <span class="ref-entry-glyph" lang="ja" aria-hidden="true">練</span>
+          <span class="ref-entry-copy">
+            <span class="ref-entry-title-row">
+              <strong>Printable Grid</strong>
+              <span class="ref-entry-pill" lang="ja">原稿用紙 · PDF</span>
+            </span>
+            <span class="ref-entry-sub">হাতের লেখা অনুশীলনের PDF শিট</span>
+          </span>
+          <span class="ref-entry-arrow" aria-hidden="true">${icon("arrowRight", 16)}</span>
+        </button>
+      </div>
+    </section>
+
+    <div class="browse-controls-card">
+      <div class="search-field">
+        ${icon("search", 20)}
+        <input id="kanji-search" type="search" value="${escapeHtml(searchQuery)}" placeholder="Search kanji, meaning, reading…" autocomplete="off" spellcheck="false" aria-label="Search kanji" />
+        <button class="search-clear ${searchQuery ? "" : "hidden"}" data-action="clear-search" aria-label="Clear search">${icon("x", 16)}</button>
+      </div>
+
+      <div class="filter-block">
+        <div class="filter-block-head">
+          <span class="eyebrow">JLPT Level</span>
+          <span class="small muted">Filter by proficiency</span>
+        </div>
+        <div class="chips" role="tablist" aria-label="Filter kanji">
+          <button class="chip ${browseFilter === "goal" ? "active" : ""}" data-action="filter" data-filter="goal" role="tab" aria-selected="${browseFilter === "goal"}">
+            🎯 লক্ষ্য (${((typeof activeStudyLevels === "function") ? activeStudyLevels() : ["N5", "N4"]).join("·")})
+          </button>
+          ${FILTERS.map((f) => `
+            <button class="chip ${browseFilter === f.id ? "active" : ""}" data-action="filter" data-filter="${f.id}" role="tab" aria-selected="${browseFilter === f.id}">
+              ${f.starred ? icon("star", 14) : ""}${f.label}
+            </button>`).join("")}
+        </div>
+      </div>
+
+      <div class="filter-block">
+        <div class="filter-block-head">
+          <span class="eyebrow">Topic · বিষয়</span>
+          <span class="small muted" id="kanji-topic-count">${categoryCount} kanji</span>
+        </div>
+        <div class="chips soft-chips" role="group" aria-label="Filter by topic">
+          <button class="chip ${browseCategory === "all" ? "active" : ""}" data-action="filter-category" data-category="all" aria-pressed="${browseCategory === "all"}">All topics</button>
+          ${KANJI_CATEGORIES.map((c) => `
+            <button class="chip ${browseCategory === c.id ? "active" : ""}" data-action="filter-category" data-category="${c.id}" aria-pressed="${browseCategory === c.id}">
+              ${escapeHtml(c.bn)}
+            </button>`).join("")}
+        </div>
       </div>
     </div>
 
     <div class="results-meta">
-      <span id="kanji-count">${filteredKanji().length} kanji${searchQuery ? " found" : ""}</span>
+      <span id="kanji-count">${list.length > shownCount ? `Showing ${shownCount} of ${list.length} kanji${searchQuery ? " found" : ""}` : `${list.length} kanji${searchQuery ? " found" : ""}`}</span>
       <span>Tap a card to study</span>
     </div>
 
-    <div class="kanji-grid" id="kanji-grid">${kanjiGridMarkup()}</div>
+    <div class="kanji-grid" id="kanji-grid" aria-busy="${useInitialSkeleton ? "true" : "false"}">${useInitialSkeleton ? kanjiSkeletonMarkup(Math.min(24, list.length)) : kanjiGridMarkup(list)}</div>
+
+    <div id="kanji-more-wrap" class="kanji-more-wrap ${remaining > 0 ? "" : "hidden"}">
+      <span id="kanji-shown-label" class="kanji-shown-label">${shownCount} / ${list.length} kanji loaded</span>
+      <button class="btn tonal kanji-more-btn" id="kanji-more" data-action="kanji-more">
+        <span>আরও ${nextBatch}টি কাঞ্জি দেখুন (${remaining}টি বাকি)</span>${icon("arrowRight", 15)}
+      </button>
+    </div>
   `;
 }
 
 /* ---------- Words ---------- */
 
 function wordSearchBlob(w) {
-  return [
+  if (w._searchBlob !== undefined) return w._searchBlob;
+  w._searchBlob = [
     w.word, w.reading, w.romaji, w.meaning, w.meaningBn, w.meaningEn, w.type, w.jlpt,
     w.pos, posLabel(w.pos), w.situationBn,
     ...(w.topics || []), ...(w.topics || []).map(topicLabel),
     ...(w.situations || []), ...(w.situations || []).map(situationLabel),
   ].filter(Boolean).join(" ").toLowerCase();
+  return w._searchBlob;
 }
 
 function filteredWords() {
@@ -598,6 +900,8 @@ function radicalFamilyChips(entry) {
 function renderRadicals() {
   const totalRefs = RADICALS.reduce((sum, r) => sum + r.kanji.length, 0);
   return `
+    <button class="back-link" data-action="open-browse">${icon("arrowLeft", 15)} Kanji library</button>
+
     <div class="view-head">
       <span class="eyebrow">Reference</span>
       <h2>Radicals</h2>
@@ -1646,72 +1950,537 @@ function renderReader() {
   `;
 }
 
-let printableLevel = "N5";
-let printableLimit = 12;
+let printableLevel = "target";
+let printablePage = 0;
+let printablePerPage = 5;
+let printableStartNum = 1;
+let printableCustomChars = "";
+let printableShowMeaning = true;
+let printableStyleMode = "school"; // "school" | "alt"
+
+/* Official Joyo Kanji Kun'yomi supplement for N4 kanji whose kun array was empty in raw JSON */
+const JOYO_KUN_SUPPLEMENT = {
+  "字": ["あざ"],
+  "図": ["はか.る"],
+  "室": ["むろ"],
+  "理": ["ことわり"],
+  "医": ["い.やす"],
+  "発": ["た.つ"],
+  "験": ["ため.す"],
+  "業": ["わざ"],
+  "病": ["や.む", "やまい"],
+  "勉": ["つと.める"],
+  "質": ["ただ.す"],
+  "工": ["たくみ"],
+  "台": ["うてな"],
+};
+
+/* Preferred primary Kun'yomi overrides where raw JSON lists prefix/archaic reading first */
+const PREFERRED_PRIMARY_KUN = {
+  "一": ["ひと.つ"],
+  "二": ["ふた.つ"],
+  "三": ["みっ.つ", "み.つ"],
+  "四": ["よっ.つ", "よん"],
+  "五": ["いつ.つ"],
+  "六": ["むっ.つ", "む.つ"],
+  "七": ["なな.つ", "なな"],
+  "八": ["やっ.つ", "や.つ"],
+  "九": ["ここの.つ"],
+  "大": ["おお.きい"],
+  "小": ["ちい.さい"],
+  "天": ["あめ"],
+  "雨": ["あめ"],
+  "日": ["ひ"],
+  "食": ["た.べる"],
+  "後": ["うし.ろ", "あと", "おく.れる"],
+  "白": ["しろ.い", "しろ"],
+  "赤": ["あか.い", "あか"],
+  "青": ["あお.い", "あお"],
+  "黒": ["くろ.い", "くろ"],
+  "高": ["たか.い", "たか"],
+  "別": ["わか.れる", "わ.ける"],
+  "引": ["ひ.く", "ひ.ける"],
+};
+
+function kataToHiraStr(str = "") {
+  return String(str).replace(/[\u30a1-\u30f6]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0x60)
+  );
+}
+
+function hiraToKataStr(str = "") {
+  return String(str).replace(/[\u3041-\u3096]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) + 0x60)
+  );
+}
+
+function getEffectiveKunList(k) {
+  if (!k) return [];
+  const rawKun = Array.isArray(k.kun) && k.kun.length > 0
+    ? k.kun
+    : (JOYO_KUN_SUPPLEMENT[k.char] || []);
+  if (rawKun.length === 0) return [];
+
+  const preferred = PREFERRED_PRIMARY_KUN[k.char] || [];
+  // Filter out pure prefix/suffix tokens like "ひと-", "おお-", "-か" if better readings exist
+  const nonAffix = rawKun.filter((r) => !r.startsWith("-") && !r.endsWith("-"));
+  const baseList = nonAffix.length > 0 ? nonAffix : rawKun.map((r) => r.replace(/^-|-$/g, ""));
+
+  // Sort preferred readings to front while preserving all valid readings
+  const ordered = [
+    ...preferred.filter((p) => baseList.includes(p) || rawKun.includes(p)),
+    ...baseList.filter((r) => !preferred.includes(r)),
+  ];
+  return [...new Set(ordered)].filter(Boolean);
+}
+
+function makeSchoolOnRow(k, onRaw) {
+  const clean = String(onRaw || "").replace(/[.\-ー\s]/g, "");
+  const kata = hiraToKataStr(clean);
+  const hira = kataToHiraStr(clean);
+  return {
+    label: kata || "オン",
+    subLabel: "音読み",
+    unit: [{ furi: hira, char: k.char }],
+  };
+}
+
+function makeSchoolKunRow(k, kunRaw) {
+  const raw = String(kunRaw || "").trim().replace(/^-|-$/g, "");
+  if (raw.includes(".")) {
+    const parts = raw.split(".");
+    const stemHira = kataToHiraStr(parts[0]);
+    const okuriHira = kataToHiraStr(parts.slice(1).join(""));
+    const okuriChars = Array.from(okuriHira).slice(0, 3);
+    // Keep unit length 2, 3, or 4 so 12 columns divide evenly
+    return {
+      label: `${stemHira}ー${okuriHira}`,
+      subLabel: "訓読み",
+      unit: [
+        { furi: stemHira, char: k.char },
+        ...okuriChars.map((ch) => ({ furi: "", char: ch })),
+      ],
+    };
+  }
+  const hira = kataToHiraStr(raw.replace(/[\-ー\s]/g, ""));
+  return {
+    label: hira || "くん",
+    subLabel: "訓読み",
+    unit: [{ furi: hira, char: k.char }],
+  };
+}
+
+function makeSchoolCompoundRow(k) {
+  const vList = vocabEntries(k);
+  const allCandidates = [
+    ...vList.map((v) => ({ word: v.word, reading: kataToHiraStr(v.reading || "") })),
+    ...(k.example && k.example.word
+      ? [{ word: k.example.word, reading: kataToHiraStr(k.example.reading || "") }]
+      : []),
+  ].filter((c) => c.word && c.reading && c.word.length === 2);
+
+  // Prefer 2-character pure Kanji compounds (no hiragana okurigana mixed in)
+  const pureKanjiTwo = allCandidates.find((c) => /^[一-龯々ヶ]{2}$/.test(c.word)) || allCandidates[0];
+  if (pureKanjiTwo && pureKanjiTwo.word.length === 2) {
+    const w = pureKanjiTwo.word;
+    const r = pureKanjiTwo.reading;
+    const kIdx = w.indexOf(k.char);
+    const onHiraList = (k.on || []).map((o) => kataToHiraStr(o.replace(/[.\-]/g, ""))).filter(Boolean);
+    const kunHiraList = getEffectiveKunList(k).map((ku) => kataToHiraStr(ku.split(".")[0].replace(/[.\-]/g, ""))).filter(Boolean);
+    const knownReadings = [...onHiraList, ...kunHiraList];
+
+    let f0 = "";
+    let f1 = "";
+    let matched = false;
+    for (const kr of knownReadings) {
+      if (!kr) continue;
+      if (kIdx === 0 && r.startsWith(kr) && r.length > kr.length) {
+        f0 = kr;
+        f1 = r.slice(kr.length);
+        matched = true;
+        break;
+      }
+      if (kIdx === 1 && r.endsWith(kr) && r.length > kr.length) {
+        f0 = r.slice(0, r.length - kr.length);
+        f1 = kr;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      const mid = Math.ceil(r.length / 2);
+      f0 = r.slice(0, mid);
+      f1 = r.slice(mid);
+    }
+
+    // Never insert 'ー' inside an On'yomi or compound reading! Use clean '・' between the 2 kanji readings.
+    return {
+      label: `${f0}・${f1}`,
+      subLabel: w,
+      unit: [
+        { furi: f0, char: w[0] },
+        { furi: f1, char: w[1] },
+      ],
+    };
+  }
+
+  const kunList = getEffectiveKunList(k);
+  if (kunList[0]) return makeSchoolKunRow(k, kunList[0]);
+  if (k.on && k.on[0]) return makeSchoolOnRow(k, k.on[0]);
+  return {
+    label: k.char,
+    subLabel: "",
+    unit: [{ furi: "", char: k.char }],
+  };
+}
+
+function getSchoolWorksheetRows(k) {
+  // Exact match for the user's school worksheet sample preset (14 別, 15 引)
+  if (printableStyleMode === "school") {
+    if (k.char === "別") {
+      return [
+        { label: "ベツ", subLabel: "音読み", unit: [{ furi: "べつ", char: "別" }] },
+        {
+          label: "わかーれる",
+          subLabel: "訓読み",
+          unit: [
+            { furi: "わか", char: "別" },
+            { furi: "", char: "れ" },
+            { furi: "", char: "る" },
+          ],
+        },
+      ];
+    }
+    if (k.char === "引" && printableLevel === "school_demo") {
+      return [
+        {
+          label: "ひーく",
+          subLabel: "訓読み",
+          unit: [
+            { furi: "ひ", char: "引" },
+            { furi: "", char: "く" },
+          ],
+        },
+        {
+          label: "びーき",
+          subLabel: "割引",
+          unit: [
+            { furi: "わり", char: "割" },
+            { furi: "びき", char: "引" },
+          ],
+        },
+      ];
+    }
+  }
+
+  const onList = k.on || [];
+  const kunList = getEffectiveKunList(k);
+
+  // Mode 2 ("alt"): Practice 2nd Kun'yomi (e.g., 別 -> わか.れる & わ.ける) or Kun + Jukugo Compound
+  if (printableStyleMode === "alt") {
+    if (kunList.length >= 2) {
+      return [
+        makeSchoolKunRow(k, kunList[0]),
+        makeSchoolKunRow(k, kunList[1]),
+      ];
+    }
+    if (onList.length > 0 && kunList.length === 1) {
+      return [
+        makeSchoolKunRow(k, kunList[0]),
+        makeSchoolCompoundRow(k),
+      ];
+    }
+    if (onList.length >= 2) {
+      return [
+        makeSchoolOnRow(k, onList[0]),
+        makeSchoolOnRow(k, onList[1]),
+      ];
+    }
+    return [
+      onList[0] ? makeSchoolOnRow(k, onList[0]) : makeSchoolCompoundRow(k),
+      makeSchoolCompoundRow(k),
+    ];
+  }
+
+  // Mode 1 ("school" — Default): Row 1 = On'yomi (Katakana), Row 2 = Primary Kun'yomi (Hiragana + okurigana)
+  if (onList.length > 0 && kunList.length > 0) {
+    return [
+      makeSchoolOnRow(k, onList[0]),
+      makeSchoolKunRow(k, kunList[0]),
+    ];
+  }
+  if (kunList.length >= 2) {
+    return [
+      makeSchoolKunRow(k, kunList[0]),
+      makeSchoolKunRow(k, kunList[1]),
+    ];
+  }
+  if (onList.length >= 2) {
+    return [
+      makeSchoolOnRow(k, onList[0]),
+      makeSchoolOnRow(k, onList[1]),
+    ];
+  }
+  if (onList.length === 1) {
+    return [
+      makeSchoolOnRow(k, onList[0]),
+      makeSchoolCompoundRow(k),
+    ];
+  }
+  if (kunList.length === 1) {
+    return [
+      makeSchoolKunRow(k, kunList[0]),
+      makeSchoolCompoundRow(k),
+    ];
+  }
+  return [
+    makeSchoolCompoundRow(k),
+    { label: "れんしゅう", subLabel: "", unit: [{ furi: "", char: k.char }] },
+  ];
+}
+
+function buildTwelveSchoolCells(unit) {
+  const safeUnit = Array.isArray(unit) && unit.length > 0 ? unit : [{ furi: "", char: "" }];
+  const L = safeUnit.length;
+  const cells = [];
+  for (let col = 0; col < 12; col++) {
+    const item = safeUnit[col % L];
+    const isFirstGroup = col < L;
+    // Complete repetitions only (if L=3, 12%3=0 so all 12 cells are active)
+    const maxActiveCol = Math.floor(12 / L) * L;
+    const isActive = col < maxActiveCol;
+    cells.push({
+      furi: isActive ? (item.furi || "") : "",
+      traceChar: isFirstGroup && isActive ? (item.char || "") : "",
+      groupEnd: isActive && ((col + 1) % L === 0) && col < 11,
+    });
+  }
+  return cells;
+}
+
+function extractKanjiOnly(text = "") {
+  if (!text) return [];
+  // Match standard CJK Unified Ideographs range + Kanji iteration marks
+  const kanjiRegex = /[\u4e00-\u9faf\u3400-\u4dbf々〆]/g;
+  const matches = String(text).match(kanjiRegex) || [];
+  return [...new Set(matches)];
+}
+
+function getPrintableKanjiPool() {
+  if (printableLevel === "school_demo") {
+    const demoChars = ["別", "引", "車", "電", "食", "飲"];
+    return demoChars.map((c) => byChar[c]).filter(Boolean);
+  }
+  if (printableLevel === "custom" && printableCustomChars.trim()) {
+    const chars = extractKanjiOnly(printableCustomChars.trim());
+    const matched = chars.map((c) => byChar[c]).filter(Boolean);
+    if (matched.length > 0) return matched;
+  }
+  if (printableLevel === "fav") {
+    return state.favorites.map((c) => byChar[c]).filter(Boolean);
+  }
+  if (printableLevel === "target") {
+    const lvls = typeof activeStudyLevels === "function" ? activeStudyLevels() : ["N5", "N4"];
+    return KANJI.filter((k) => lvls.includes(k.level));
+  }
+  return KANJI.filter((k) => k.level === printableLevel);
+}
+
+function getCurrentPrintableSlice() {
+  const pool = getPrintableKanjiPool();
+  const totalPages = Math.max(1, Math.ceil(pool.length / printablePerPage));
+  if (printablePage >= totalPages) printablePage = totalPages - 1;
+  if (printablePage < 0) printablePage = 0;
+  const startIdx = printablePage * printablePerPage;
+  const items = pool.slice(startIdx, startIdx + printablePerPage);
+  const baseNum = printableLevel === "school_demo" && printablePage === 0
+    ? 14
+    : (printableStartNum + startIdx);
+  return { pool, totalPages, startIdx, items, baseNum };
+}
+
+function renderSchoolBlockMarkup(k, itemNumber) {
+  const [row1, row2] = getSchoolWorksheetRows(k);
+  const cells1 = buildTwelveSchoolCells(row1.unit);
+  const cells2 = buildTwelveSchoolCells(row2.unit);
+  const onStr = (k.on && k.on.length) ? k.on.join(", ") : "—";
+  const kunArr = getEffectiveKunList(k);
+  const kunStr = kunArr.length ? kunArr.join(", ") : "—";
+
+  return `
+    <div class="school-block" data-char="${escapeHtml(k.char)}">
+      <!-- Top Number & Info Strip -->
+      <div class="school-num-bar">
+        <div class="school-num-badge">${itemNumber}</div>
+        <div class="school-num-meta">
+          ${printableShowMeaning ? `
+            <span class="school-meta-bn">${escapeHtml(primaryMeaning(k))}</span>
+            ${secondaryMeaning(k) ? `<span class="school-meta-en">· ${escapeHtml(secondaryMeaning(k))}</span>` : ""}
+          ` : ""}
+          <span class="school-meta-readings" lang="ja">音: <strong>${escapeHtml(onStr)}</strong> · 訓: <strong>${escapeHtml(kunStr)}</strong></span>
+          <span class="school-meta-strokes">${k.level} · ${k.strokes} strokes</span>
+        </div>
+      </div>
+
+      <!-- Row 1: Master Kanji + 10 Practice Boxes (first 3 trace, 7 blank) -->
+      <div class="school-main-row">
+        <div class="school-master-cell" title="${escapeHtml(primaryMeaning(k))}">
+          <span class="school-master-kanji" lang="ja">${escapeHtml(k.char)}</span>
+        </div>
+        <div class="school-kanji-grid">
+          ${Array.from({ length: 10 }).map((_, idx) => `
+            <div class="school-kbox ${idx < 3 ? "is-trace" : ""}">
+              <span class="school-guide-v" aria-hidden="true"></span>
+              <span class="school-guide-h" aria-hidden="true"></span>
+              ${idx < 3 ? `<span class="school-trace-char" lang="ja">${escapeHtml(k.char)}</span>` : ""}
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- Rows 2 & 3: 読み方 (Reading & Word Writing Practice, 12 columns) -->
+      <div class="school-yomi-section">
+        <div class="school-yomi-sidebar">
+          <div class="school-yomi-vlabel" lang="ja" aria-label="読み方">
+            <span>読</span><span>み</span><span>方</span>
+          </div>
+          <div class="school-yomi-labels">
+            <div class="school-yomi-label-cell" lang="ja">
+              <span class="school-yomi-text">${escapeHtml(row1.label)}</span>
+            </div>
+            <div class="school-yomi-label-cell" lang="ja">
+              <span class="school-yomi-text">${escapeHtml(row2.label)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="school-yomi-rows">
+          <div class="school-yomi-row">
+            ${cells1.map((c) => `
+              <div class="school-yomi-col ${c.groupEnd ? "group-end" : ""}">
+                <div class="school-furi-cell" lang="ja">${escapeHtml(c.furi)}</div>
+                <div class="school-wbox ${c.traceChar ? "is-trace" : ""}">
+                  ${c.traceChar ? `<span class="school-wtrace-char" lang="ja">${escapeHtml(c.traceChar)}</span>` : ""}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+
+          <div class="school-yomi-row">
+            ${cells2.map((c) => `
+              <div class="school-yomi-col ${c.groupEnd ? "group-end" : ""}">
+                <div class="school-furi-cell" lang="ja">${escapeHtml(c.furi)}</div>
+                <div class="school-wbox ${c.traceChar ? "is-trace" : ""}">
+                  ${c.traceChar ? `<span class="school-wtrace-char" lang="ja">${escapeHtml(c.traceChar)}</span>` : ""}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 function renderPrintable() {
-  const kanjiList = (printableLevel === "fav"
-    ? state.favorites.map((c) => byChar[c]).filter(Boolean)
-    : KANJI.filter((k) => k.level === printableLevel)
-  ).slice(0, printableLimit);
+  const { pool, totalPages, items, baseNum } = getCurrentPrintableSlice();
+  const targetLvls = typeof activeStudyLevels === "function" ? activeStudyLevels().join("·") : "N5·N4";
 
   return `
     <button class="back-link no-print" data-action="open-browse">${icon("arrowLeft", 15)} Kanji library</button>
 
     <div class="view-head no-print">
-      <span class="eyebrow">Print & Practice · প্রিন্ট শিট</span>
-      <h2>Printable Grid (原稿用紙)</h2>
-      <p>খাতায় কলম বা পেনসিল দিয়ে লিখে অনুশীলন করার জন্য জাপানি গ্রিড শিট। 'প্রিন্ট / PDF ডাউনলোড' বাটনে চাপলেই রেডি পেজ প্রিন্ট বা PDF হিসেবে সেভ হবে।</p>
+      <span class="eyebrow">Japanese School Worksheet · জাপানি স্কুল প্র্যাকটিস শিট</span>
+      <h2>Printable Grid (漢字練習帳)</h2>
+      <p>জাপানি ল্যাঙ্গুয়েজ স্কুলের আসল স্টাইলে কাঞ্জি ও 読み方 (Onyomi ও Kunyomi উচ্চারণ) লেখার অনুশীলন শিট। সরাসরি <strong>A4 ছবি (PNG) ডাউনলোড</strong> করুন অথবা <strong>প্রিন্ট / PDF</strong> হিসেবে সেভ করুন।</p>
     </div>
 
-    <div class="printable-controls no-print" style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px 18px;margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--muted)">লেভেল:</span>
-        <button class="chip ${printableLevel === "N5" ? "active" : ""}" data-action="printable-level" data-level="N5">N5</button>
-        <button class="chip ${printableLevel === "N4" ? "active" : ""}" data-action="printable-level" data-level="N4">N4</button>
-        <button class="chip ${printableLevel === "N3" ? "active" : ""}" data-action="printable-level" data-level="N3">N3</button>
-        <button class="chip ${printableLevel === "fav" ? "active" : ""}" data-action="printable-level" data-level="fav">★ ফেভারিট (${state.favorites.length})</button>
+    <div class="school-controls-card no-print">
+      <!-- Row 1: Level & Preset Filter Chips -->
+      <div class="school-ctrl-group">
+        <span class="school-ctrl-label">সেট নির্বাচন:</span>
+        <div class="school-chip-row">
+          <button class="chip ${printableLevel === "target" ? "active" : ""}" data-action="printable-level" data-level="target">🎯 আমার লক্ষ্য (${targetLvls})</button>
+          <button class="chip ${printableLevel === "school_demo" ? "active" : ""}" data-action="printable-level" data-level="school_demo">🏫 স্কুল শিট নমুনা (14 別 · 15 引)</button>
+          <button class="chip ${printableLevel === "N5" ? "active" : ""}" data-action="printable-level" data-level="N5">N5</button>
+          <button class="chip ${printableLevel === "N4" ? "active" : ""}" data-action="printable-level" data-level="N4">N4</button>
+          <button class="chip ${printableLevel === "N3" ? "active" : ""}" data-action="printable-level" data-level="N3">N3</button>
+          <button class="chip ${printableLevel === "N2" ? "active" : ""}" data-action="printable-level" data-level="N2">N2</button>
+          <button class="chip ${printableLevel === "N1" ? "active" : ""}" data-action="printable-level" data-level="N1">N1</button>
+          <button class="chip ${printableLevel === "fav" ? "active" : ""}" data-action="printable-level" data-level="fav">★ ফেভারিট (${state.favorites.length})</button>
+        </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn primary small" data-action="window-print">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          প্রিন্ট / PDF ডাউনলোড
-        </button>
-      </div>
-    </div>
-
-    <div class="printable-sheet-paper" id="printable-area">
-      <div class="print-header" style="text-align:center;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:14px">
-        <h2 style="margin:0;font-size:20px;color:#111">JLPT ${printableLevel === "fav" ? "Special Selection" : printableLevel} Kanji Writing Practice Sheet</h2>
-        <p style="margin:4px 0 0;font-size:11px;color:#555">OpenJLPT Bangla Edition · 原稿用紙 漢字練習帳 · Name: _________________ Date: ____________</p>
-      </div>
-
-      <div class="print-grid" style="display:flex;flex-direction:column;gap:10px">
-        ${kanjiList.map((k) => `
-          <div class="print-row" style="display:flex;align-items:stretch;border:1px solid #444;border-radius:6px;overflow:hidden;background:#fff">
-            <div style="width:72px;background:#f5f5f5;border-right:1px solid #444;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px">
-              <span style="font-family:'Noto Sans JP', sans-serif;font-size:36px;font-weight:700;color:#000;line-height:1">${k.char}</span>
-              <span style="font-size:9.5px;color:#666;margin-top:2px">${k.strokes} strokes</span>
-            </div>
-
-            <div style="width:140px;border-right:1px solid #444;padding:4px 8px;display:flex;flex-direction:column;justify-content:center;background:#fafafa">
-              <strong style="font-size:12.5px;color:#000;line-height:1.2">${escapeHtml(primaryMeaning(k))}</strong>
-              <span style="font-size:10px;color:#444">${escapeHtml(secondaryMeaning(k))}</span>
-              <span style="font-size:10.5px;color:#000;font-family:'Noto Sans JP', sans-serif;margin-top:3px">${(k.kun && k.kun[0]) || (k.on && k.on[0]) || ""}</span>
-            </div>
-
-            <div style="flex:1;display:flex;align-items:center">
-              ${[1, 2, 3, 4, 5, 6, 7].map((b, bi) => `
-                <div style="flex:1;height:52px;border-right:${bi === 6 ? "none" : "1px solid #ccc"};position:relative;display:flex;align-items:center;justify-content:center">
-                  <div style="position:absolute;top:0;bottom:0;left:50%;border-left:1px dashed #e0e0e0;pointer-events:none"></div>
-                  <div style="position:absolute;left:0;right:0;top:50%;border-top:1px dashed #e0e0e0;pointer-events:none"></div>
-                  ${bi === 0 ? `<span style="font-family:'Noto Sans JP', sans-serif;font-size:32px;color:#bbb;font-weight:400;user-select:none">${k.char}</span>` : ""}
-                </div>
-              `).join("")}
-            </div>
+      <!-- Row 2: Custom Kanji Input + Worksheet Style Options -->
+      <div class="school-ctrl-split">
+        <div class="school-custom-box">
+          <label class="school-ctrl-label" for="printable-custom-input">নিজের কাঞ্জি বা জাপানি বাক্য পেস্ট করুন (অটো-ফিল্টার):</label>
+          <div class="school-custom-input-row">
+            <input
+              id="printable-custom-input"
+              type="text"
+              class="school-custom-input"
+              placeholder="যেকোনো জাপানি লেখা বা বাক্য পেস্ট করুন (যেমন: 私は日本語を勉強します)"
+              value="${escapeHtml(printableCustomChars)}"
+            />
+            <button class="btn secondary small" data-action="printable-custom-apply">শিট তৈরি</button>
           </div>
-        `).join("")}
+        </div>
+
+        <div class="school-options-box">
+          <div class="school-opt-pills">
+            <button class="chip ${printableStyleMode === "school" ? "active" : ""}" data-action="printable-mode" data-mode="school" title="প্রথম সারিতে Onyomi এবং দ্বিতীয় সারিতে মূল Kunyomi অনুশীলন">Onyomi + Kunyomi (স্কুল স্ট্যান্ডার্ড)</button>
+            <button class="chip ${printableStyleMode === "alt" ? "active" : ""}" data-action="printable-mode" data-mode="alt" title="কাঞ্জির ২য় Kunyomi (যেমন 別-এর わか.れる ও わ.ける) বা যৌগিক শব্দ অনুশীলন">সব Kunyomi / ২য় উচ্চারণ</button>
+            <button class="chip ${printableShowMeaning ? "active" : ""}" data-action="printable-meaning-toggle">${printableShowMeaning ? "✓ বাংলা অর্থ সহ" : "+ বাংলা অর্থ"}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Pagination + Per-Page + Download / Print Action Buttons -->
+      <div class="school-ctrl-footer">
+        <div class="school-pager">
+          <button class="btn secondary small" data-action="printable-page-prev" ${printablePage <= 0 ? "disabled" : ""}>◀ আগের পেজ</button>
+          <span class="school-page-indicator">পেজ <strong>${printablePage + 1}</strong> / ${totalPages} <small>(${pool.length}টি কাঞ্জি)</small></span>
+          <button class="btn secondary small" data-action="printable-page-next" ${printablePage >= totalPages - 1 ? "disabled" : ""}>পরের পেজ ▶</button>
+          <div class="school-perpage-chips" title="প্রতি পেজে কয়টি ব্লক থাকবে (A4 স্ট্যান্ডার্ড ৫টি)">
+            ${[3, 4, 5, 6].map((n) => `
+              <button class="chip ${printablePerPage === n ? "active" : ""}" data-action="printable-per-page" data-count="${n}">${n}টি/পেজ ${n === 5 ? "(A4)" : ""}</button>
+            `).join("")}
+          </div>
+        </div>
+
+        <div class="school-action-btns">
+          <button class="btn primary small" data-action="download-printable-sheet">
+            ${icon("download", 15)} A4 শিট ডাউনলোড (PNG)
+          </button>
+          <button class="btn secondary small" data-action="window-print">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            প্রিন্ট / Save PDF
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scrollable Wrapper for Mobile so the School Grid stays true-to-scale -->
+    <div class="school-sheet-scroll-wrap">
+      <div class="printable-sheet-paper school-sheet-paper" id="printable-area">
+        <div class="school-sheet-header">
+          <div class="school-sheet-title-block">
+            <span class="school-sheet-jp-tag">漢字練習帳 · KANJI PRACTICE WORKSHEET</span>
+            <h3>JLPT ${printableLevel === "school_demo" ? "School Worksheet (別・引)" : printableLevel === "target" ? targetLvls : printableLevel === "fav" ? "Favorites" : printableLevel === "custom" ? "Custom Set" : printableLevel} — কাঞ্জি ও 読み方 অনুশীলন শিট</h3>
+          </div>
+          <div class="school-sheet-sign">
+            <span>名前 (Name): ______________________</span>
+            <span>日付 (Date): ____/____/____</span>
+          </div>
+        </div>
+
+        <div class="school-blocks-list">
+          ${items.length > 0
+            ? items.map((k, idx) => renderSchoolBlockMarkup(k, baseNum + idx)).join("")
+            : `<div style="padding:32px;text-align:center;color:#444">এই সেটে কোনো কাঞ্জি পাওয়া যায়নি। অন্য লেভেল নির্বাচন করুন।</div>`
+          }
+        </div>
       </div>
     </div>
   `;
@@ -2013,7 +2782,7 @@ function renderQuizResults() {
           <span class="review-char">${a.char}</span>
           <span class="review-main">
             <strong>${a.meaning}</strong>
-            <small>${a.meaningEn ? `${a.meaningEn} · ` : ""}${a.correct ? "Correct" : `You chose “${a.selected}”`}</small>
+            <small>${a.meaningEn ? `${a.meaningEn} · ` : ""}${a.correct ? `Correct (${escapeHtml(a.answer || a.selected)})` : `Correct: “${escapeHtml(a.answer || "")}” · You chose “${escapeHtml(a.selected)}”`}</small>
           </span>
           <span class="review-badge">${icon(a.correct ? "check" : "x", 15)}</span>
         </div>`).join("")}
@@ -2027,55 +2796,16 @@ function renderQuiz() {
   return renderQuizSetup();
 }
 
-function cloudSyncMarkup() {
+function renderProfile() {
+  const learned = learnedList();
+  const learnedCount = learned.length;
+  const streakCount = streak();
+  const acc = accuracy();
+  const favCount = state.favorites.filter((c) => KANJI.some((k) => k.char === c)).length;
+  const rank = currentRank(learnedCount);
   const fb = window.firebaseSync;
-  const isLoaded = typeof firebase !== "undefined";
-  const isConfigured = fb && fb.isConfigured();
   const user = fb ? fb.currentUser : null;
   const status = fb ? fb.syncStatus : "idle";
-
-  if (!isLoaded || !isConfigured) {
-    return `
-      <section class="cloud-sync-card">
-        <div class="cloud-card-head">
-          <div class="cloud-title">
-            <span class="cloud-icon">${icon("cloud", 20)}</span>
-            <div>
-              <h4>Google একাউন্ট সিঙ্ক (Multi-device Sync)</h4>
-              <p>সব ডিভাইসে (মোবাইল ও পিসিতে) কাঞ্জি ও SRS ডাটা রিয়েল-টাইমে সিঙ্ক করতে Firebase কনফিগ সেট করুন।</p>
-            </div>
-          </div>
-        </div>
-        <div class="cloud-actions">
-          <button class="btn primary" data-action="open-firebase-config">
-            ${icon("settings", 16)} Firebase কনফিগ সেট করুন
-          </button>
-        </div>
-      </section>`;
-  }
-
-  if (!user) {
-    return `
-      <section class="cloud-sync-card not-logged">
-        <div class="cloud-card-head">
-          <div class="cloud-title">
-            <span class="cloud-google-icon">${icon("google", 22)}</span>
-            <div>
-              <h4>Google দিয়ে সাইন-ইন করুন</h4>
-              <p>সকল ডিভাইসে আপনার কাঞ্জি, SRS ইন্টারভাল ও কুইজ ডাটা স্বয়ংক্রিয়ভাবে সিঙ্ক থাকবে।</p>
-            </div>
-          </div>
-        </div>
-        <div class="cloud-actions">
-          <button class="btn google-btn" data-action="google-signin">
-            ${icon("google", 18)} Continue with Google
-          </button>
-          <button class="btn ghost icon-only" data-action="open-firebase-config" title="Firebase কনফিগ পরিবর্তন">
-            ${icon("settings", 16)}
-          </button>
-        </div>
-      </section>`;
-  }
 
   let statusText = "সব ডিভাইসে সিঙ্ক সক্রিয়";
   let statusClass = "synced";
@@ -2086,38 +2816,6 @@ function cloudSyncMarkup() {
     statusText = "সিঙ্ক ত্রুটি (অফলাইন মোড)";
     statusClass = "error";
   }
-
-  return `
-    <section class="cloud-sync-card logged-in">
-      <div class="cloud-user-row">
-        ${user.photoURL ? `<img src="${escapeHtml(user.photoURL)}" alt="Profile" class="cloud-user-avatar" />` : `<div class="cloud-user-initial">${escapeHtml(user.displayName ? user.displayName[0] : "G")}</div>`}
-        <div class="cloud-user-info">
-          <h4>${escapeHtml(user.displayName || "Google User")}</h4>
-          <span class="cloud-user-email">${escapeHtml(user.email || "")}</span>
-          <span class="cloud-status-badge ${statusClass}">
-            <span class="cloud-dot"></span> ${statusText}
-          </span>
-        </div>
-      </div>
-      <div class="cloud-actions">
-        <button class="btn tonal" data-action="manual-sync" title="এখনই ক্লাউডের সাথে রিফ্রেশ করুন">
-          ${icon("refresh", 15)} সিঙ্ক রিফ্রেশ
-        </button>
-        <button class="btn ghost" data-action="signout">
-          ${icon("logOut", 15)} সাইন আউট
-        </button>
-      </div>
-    </section>`;
-}
-
-function renderProfile() {
-  const learned = learnedList();
-  const learnedCount = learned.length;
-  const streakCount = streak();
-  const acc = accuracy();
-  const favCount = state.favorites.filter((c) => KANJI.some((k) => k.char === c)).length;
-  const rank = currentRank(learnedCount);
-  const user = window.firebaseSync?.currentUser;
 
   const badges = [
     { name: "First step", desc: "Learn 1 kanji", iconName: "sparkles", ok: learnedCount >= 1 },
@@ -2135,16 +2833,43 @@ function renderProfile() {
       <h2>Your progress</h2>
     </div>
 
-    ${cloudSyncMarkup()}
-
-    <section class="profile-card">
-      <div class="profile-avatar ${user && user.photoURL ? "has-photo" : ""}">
-        ${user && user.photoURL ? `<img src="${escapeHtml(user.photoURL)}" alt="Avatar" class="avatar-img" />` : (user ? escapeHtml(user.displayName ? user.displayName[0] : "学") : "学")}
+    <section class="profile-card unified-profile-card ${user ? "is-logged-in" : "not-logged-in"}">
+      <div class="profile-main-row">
+        <div class="profile-avatar ${user && user.photoURL ? "has-photo" : ""}">
+          ${user && user.photoURL
+            ? `<img src="${escapeHtml(user.photoURL)}" alt="Avatar" class="avatar-img" referrerpolicy="no-referrer" />`
+            : (user ? escapeHtml(user.displayName ? user.displayName[0] : "学") : (state.userName ? escapeHtml(state.userName[0].toUpperCase()) : "学"))}
+        </div>
+        <div class="profile-copy">
+          <h3>${user ? escapeHtml(user.displayName || "Kanji Learner") : escapeHtml(state.userName || "Kanji Learner")}</h3>
+          <p>${learnedCount} of ${KANJI.length} kanji learned${user && user.email ? ` · ${escapeHtml(user.email)}` : ""}</p>
+          <div class="profile-badges-row">
+            <span class="level-badge N5" title="কাঞ্জি শেখার বর্তমান ধাপ">${rank}</span>
+            ${user ? `
+              <span class="cloud-status-badge ${statusClass}">
+                <span class="cloud-dot"></span> ${statusText}
+              </span>
+            ` : ""}
+          </div>
+        </div>
       </div>
-      <div class="profile-copy">
-        <h3>${user ? escapeHtml(user.displayName || "Kanji Learner") : "Kanji Learner"}</h3>
-        <p>${learnedCount} of ${KANJI.length} kanji learned${user && user.email ? ` · ${escapeHtml(user.email)}` : ""}</p>
-        <span class="level-badge N5">${rank}</span>
+
+      <div class="profile-actions-row">
+        ${user ? `
+          <button class="btn tonal profile-action-btn" data-action="manual-sync" title="এখনই ক্লাউডের সাথে রিফ্রেশ করুন">
+            ${icon("refresh", 15)} সিঙ্ক রিফ্রেশ
+          </button>
+          <button class="btn ghost profile-action-btn" data-action="signout">
+            ${icon("logOut", 15)} সাইন আউট
+          </button>
+        ` : `
+          <div class="profile-signin-prompt">
+            <span>সব ডিভাইসে কাঞ্জি ও SRS প্রগ্রেস অটো-সিঙ্ক করতে Google কানেক্ট করুন</span>
+            <button class="btn google-btn" data-action="google-signin">
+              ${icon("google", 18)} Continue with Google
+            </button>
+          </div>
+        `}
       </div>
     </section>
 
@@ -2200,23 +2925,19 @@ function renderProfile() {
           </span>
           <span class="chev">${icon("chevron", 17)}</span>
         </button>
-        <button class="setting-row" data-action="export-backup">
-          <span class="setting-icon">${icon("download", 16)}</span>
+        <button class="setting-row" data-action="open-shortcuts">
+          <span class="setting-icon">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="2.5" />
+              <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M18 12h.01M8 16h8" />
+            </svg>
+          </span>
           <span class="setting-copy">
-            <strong>ব্যাকআপ ডাউনলোড (Export Backup)</strong>
-            <span>আপনার শেখা সমস্ত প্রগ্রেস .json ফাইলে সেভ করুন</span>
+            <strong>Keyboard shortcuts</strong>
+            <span>কিবোর্ড দিয়ে ব্যবহারের সকল শর্টকাট (?)</span>
           </span>
           <span class="chev">${icon("chevron", 17)}</span>
         </button>
-        <button class="setting-row" data-action="trigger-import-backup">
-          <span class="setting-icon">${icon("cloudCheck", 16)}</span>
-          <span class="setting-copy">
-            <strong>ব্যাকআপ রিস্টোর (Import Backup)</strong>
-            <span>আগের সেভ করা ফাইল থেকে ডাটা ফিরিয়ে আনুন</span>
-          </span>
-          <span class="chev">${icon("chevron", 17)}</span>
-        </button>
-        <input type="file" id="backup-file-input" accept=".json" style="display:none" />
         <button class="setting-row" data-action="about">
           <span class="setting-icon">${icon("info", 16)}</span>
           <span>About this app</span>
@@ -2262,6 +2983,17 @@ function renderSettings() {
 
     <section class="section">
       <div class="section-head">
+        <h3>Target JLPT Levels · আপনার লক্ষ্য</h3>
+        <span class="small muted">Multi-select</span>
+      </div>
+      <div class="settings-goal-box">
+        <p class="settings-note" style="margin:0 0 10px">এক বা একাধিক লেভেল সিলেক্ট করে রাখুন — হোম পেজের Today's Kanji, প্রগ্রেস কার্ড ও সাজেশন শুধুমাত্র এই লেভেলগুলো থেকেই আসবে:</p>
+        ${studyLevelSelectorMarkup(false)}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
         <h3>Reading display</h3>
         ${anyOff
           ? `<button class="text-link" data-action="reset-prefs">Reset all</button>`
@@ -2302,9 +3034,9 @@ function sheetMarkup(k) {
   return `
     <div class="sheet-handle" aria-hidden="true"></div>
     <div class="sheet-top">
-      <button class="icon-btn" data-action="close-sheet" aria-label="Close details">${icon("x", 19)}</button>
+      <button class="icon-btn" data-action="close-sheet" aria-label="Close details" title="বন্ধ করুন (Esc)">${icon("x", 19)}</button>
       <span class="level-badge ${k.level}">JLPT ${k.level}</span>
-      <button class="icon-btn ${fav ? "active" : ""}" data-action="fav" data-char="${k.char}" aria-label="${fav ? "Remove from favorites" : "Add to favorites"}">
+      <button class="icon-btn ${fav ? "active" : ""}" data-action="fav" data-char="${k.char}" aria-label="${fav ? "Remove from favorites" : "Add to favorites"}" title="প্রিয় কাঞ্জি (F)">
         ${icon(fav ? "starFilled" : "star", 19)}
       </button>
     </div>
@@ -2524,11 +3256,11 @@ function sheetMarkup(k) {
     })()}
 
     <div class="sheet-nav">
-      <button class="btn ghost" data-action="open-kanji" data-char="${prev.char}" aria-label="Previous kanji ${prev.char}">
-        ${icon("arrowLeft", 16)} ${prev.char}
+      <button class="btn ghost" data-action="open-kanji" data-char="${prev.char}" aria-label="Previous kanji ${prev.char}" title="পূর্ববর্তী কাঞ্জি (← বা J)">
+        ${icon("arrowLeft", 16)} ${prev.char} <span class="key-hint" aria-hidden="true">←</span>
       </button>
-      <button class="btn ghost" data-action="open-kanji" data-char="${next.char}" aria-label="Next kanji ${next.char}">
-        ${next.char} ${icon("arrowRight", 16)}
+      <button class="btn ghost" data-action="open-kanji" data-char="${next.char}" aria-label="Next kanji ${next.char}" title="পরবর্তী কাঞ্জি (→ বা K)">
+        <span class="key-hint" aria-hidden="true">→</span> ${next.char} ${icon("arrowRight", 16)}
       </button>
     </div>
   `;

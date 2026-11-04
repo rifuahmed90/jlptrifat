@@ -169,28 +169,28 @@ for (const lvl of allLevels) {
 }
 
 const body = `${banner}
-const DATA_META = ${JSON.stringify({
+var DATA_META = globalThis.DATA_META = ${JSON.stringify({
   ...metaLevels,
   radicals: { count: radicals.length },
   words: vocab.size,
   generated: new Date().toISOString(),
 }, null, 2)};
 
-const TAXONOMY = ${JSON.stringify(taxonomy, null, 2)};
+var TAXONOMY = globalThis.TAXONOMY = ${JSON.stringify(taxonomy, null, 2)};
 
-const VOCAB = {
+var VOCAB = globalThis.VOCAB = {
 ${Object.entries(vocabObject).map(([id, item]) => `  ${JSON.stringify(id)}: ${JSON.stringify(item)},`).join("\n")}
 };
 
-const RADICALS = [
+var RADICALS = globalThis.RADICALS = [
 ${radicals.map((item) => `  ${JSON.stringify(item)},`).join("\n")}
 ];
 
-const GRAMMAR = [
+var GRAMMAR = globalThis.GRAMMAR = [
 ${grammarRaw.map((item) => `  ${JSON.stringify(item)},`).join("\n")}
 ];
 
-const KANJI = [
+var KANJI = globalThis.KANJI = [
 ${kanji.map((item) => `  ${JSON.stringify(item)},`).join("\n")}
 ];
 `;

@@ -13,8 +13,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css" />
-  <link rel="stylesheet" href="css/responsive.css" />
+  <link rel="stylesheet" href="css/styles.css?v=19" />
+  <link rel="stylesheet" href="css/responsive.css?v=19" />
+  <script>
+    if ("caches" in window) {
+      caches.keys().then(function (names) {
+        names.forEach(function (name) {
+          if (name.indexOf("openjlpt-v") === 0 || (name.indexOf("kanji-dark-v") === 0 && name !== "kanji-dark-v20")) caches.delete(name);
+        });
+      });
+    }
+  </script>
 </head>
 <body>
   <div class="app-shell">
@@ -26,6 +35,12 @@
           <span>JLPT 漢字 trainer</span>
         </div>
       </div>
+      <button class="icon-btn topbar-shortcuts" data-action="open-shortcuts" title="কিবোর্ড শর্টকাট (?) · Keyboard shortcuts" aria-label="Keyboard shortcuts">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="4" width="20" height="16" rx="2.5" />
+          <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M18 12h.01M8 16h8" />
+        </svg>
+      </button>
       <button class="icon-btn topbar-search" data-action="open-search" aria-label="Search kanji">
         <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="6.4" /><path d="m16 16 4.3 4.3" />
@@ -92,43 +107,133 @@
     </div>
   </dialog>
 
-  <dialog class="confirm firebase-modal" id="firebase-dialog">
-    <div class="firebase-modal-head">
-      <div class="firebase-modal-title">
-        <h3>Firebase Cloud Sync</h3>
-      </div>
-      <button class="icon-btn" data-action="close-firebase-dialog" aria-label="Close">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+  <dialog class="shortcuts-dialog" id="shortcuts-dialog" aria-label="Keyboard Shortcuts">
+    <div class="shortcuts-head">
+      <h3>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="4" width="20" height="16" rx="2.5" />
+          <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M18 12h.01M8 16h8" />
+        </svg>
+        <span>কিবোর্ড শর্টকাট · Keyboard Shortcuts</span>
+      </h3>
+      <button class="icon-btn" data-action="close-shortcuts" aria-label="Close shortcuts">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
       </button>
     </div>
-    <p class="firebase-desc">
-      Google দিয়ে সাইন-ইন করে সকল ডিভাইসে কাঞ্জি অগ্রগতি সিঙ্ক করার জন্য আপনার Firebase প্রজেক্ট কনফিগারেশন দিন (অথবা <code>js/firebase-config.js</code> ফাইলে সেট করুন)।
-    </p>
-    <div class="fb-field-group">
-      <label for="firebase-config-input">Firebase Config (JSON ফরম্যাট):</label>
-      <textarea id="firebase-config-input" rows="7" placeholder='{
-  "apiKey": "AIzaSy...",
-  "authDomain": "your-app.firebaseapp.com",
-  "projectId": "your-app",
-  "storageBucket": "your-app.appspot.com",
-  "messagingSenderId": "...",
-  "appId": "..."
-}'></textarea>
-    </div>
-    <div class="dialog-actions">
-      <button class="btn ghost" data-action="close-firebase-dialog">বাতিল</button>
-      <button class="btn primary" data-action="save-firebase-config">সেভ ও কানেক্ট করুন</button>
+
+    <div class="shortcuts-body">
+      <div class="shortcuts-group">
+        <div class="shortcuts-group-title">ন্যাভিগেশন · Global Navigation</div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">হোম পেজে যান (Home)</span>
+          <span class="shortcut-keys"><kbd>1</kbd> <span class="shortcut-or">বা</span> <kbd>H</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">কাঞ্জি লাইব্রেরি (Library)</span>
+          <span class="shortcut-keys"><kbd>2</kbd> <span class="shortcut-or">বা</span> <kbd>K</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">কুইজ ও রিভিশন (Quiz)</span>
+          <span class="shortcut-keys"><kbd>3</kbd> <span class="shortcut-or">বা</span> <kbd>Q</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">প্রোফাইল ও প্রগ্রেস (You)</span>
+          <span class="shortcut-keys"><kbd>4</kbd> <span class="shortcut-or">বা</span> <kbd>U</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">কাঞ্জি / শব্দ সার্চে ফোকাস</span>
+          <span class="shortcut-keys"><kbd>/</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">শর্টকাট সহায়িকা টগল</span>
+          <span class="shortcut-keys"><kbd>?</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">উইন্ডো বন্ধ / পেছনে ফেরা</span>
+          <span class="shortcut-keys"><kbd>Esc</kbd></span>
+        </div>
+      </div>
+
+      <div class="shortcuts-group">
+        <div class="shortcuts-group-title">কাঞ্জি ডিটেইল শীট · Kanji Detail Sheet</div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">আগের / পরের কাঞ্জি দেখা</span>
+          <span class="shortcut-keys"><kbd>←</kbd> <kbd>→</kbd> <span class="shortcut-or">বা</span> <kbd>J</kbd> <kbd>K</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">ফেভারিট (Star) টগল</span>
+          <span class="shortcut-keys"><kbd>F</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">শেখা সম্পন্ন (Learned / SRS)</span>
+          <span class="shortcut-keys"><kbd>M</kbd> <span class="shortcut-or">বা</span> <kbd>L</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">উচ্চারণ শুনুন (Speak TTS)</span>
+          <span class="shortcut-keys"><kbd>S</kbd> <span class="shortcut-or">বা</span> <kbd>V</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">স্ট্রোক অ্যানিমেশন প্লে / পজ</span>
+          <span class="shortcut-keys"><kbd>Space</kbd> <span class="shortcut-or">বা</span> <kbd>P</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">স্ট্রোক এক ধাপ আগে / পরে</span>
+          <span class="shortcut-keys"><kbd>[</kbd> <kbd>]</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">হাতের লেখার ক্যানভাস ক্লিয়ার</span>
+          <span class="shortcut-keys"><kbd>C</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">Watch ও Draw মোড অদলবদল</span>
+          <span class="shortcut-keys"><kbd>W</kbd></span>
+        </div>
+      </div>
+
+      <div class="shortcuts-group">
+        <div class="shortcuts-group-title">কুইজ ও ফ্ল্যাশকার্ড · Quiz & Flashcards</div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">কুইজের উত্তর নির্বাচন</span>
+          <span class="shortcut-keys"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <span class="shortcut-or">বা</span> <kbd>A</kbd>–<kbd>D</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">ফ্ল্যাশকার্ড উল্টানো (Reveal)</span>
+          <span class="shortcut-keys"><kbd>Space</kbd> <span class="shortcut-or">বা</span> <kbd>Enter</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">ফ্ল্যাশকার্ড রেটিং (ভুলে গেছি / মনে আছে / খুব সহজ)</span>
+          <span class="shortcut-keys"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">ফলাফল থেকে আবার কুইজ শুরু</span>
+          <span class="shortcut-keys"><kbd>R</kbd> <span class="shortcut-or">বা</span> <kbd>Enter</kbd></span>
+        </div>
+      </div>
+
+      <div class="shortcuts-group">
+        <div class="shortcuts-group-title">প্রিন্ট ও ওয়ার্কশীট · Printable Worksheet</div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">আগের / পরের পৃষ্ঠা</span>
+          <span class="shortcut-keys"><kbd>←</kbd> <kbd>→</kbd> <span class="shortcut-or">বা</span> <kbd>[</kbd> <kbd>]</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">জাপানি স্কুল শিট PNG ডাউনলোড</span>
+          <span class="shortcut-keys"><kbd>D</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-desc">A4 প্রিন্ট / PDF সংরক্ষণ</span>
+          <span class="shortcut-keys"><kbd>P</kbd> <span class="shortcut-or">বা</span> <kbd>Ctrl+P</kbd></span>
+        </div>
+      </div>
     </div>
   </dialog>
 
-  <!-- Firebase SDKs (v10 compat) -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-  <script src="js/firebase-config.js"></script>
-  <script src="js/firebase-sync.js"></script>
-  <script src="js/data.js"></script>
-  <script src="js/views.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/firebase-config.js?v=20"></script>
+  <script src="js/firebase-sync.js?v=20"></script>
+  <script src="js/data.js?v=20"></script>
+  <script src="js/views.js?v=20"></script>
+  <script src="js/app.js?v=20"></script>
 </body>
 </html>

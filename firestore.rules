@@ -1,0 +1,62 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidUserProgress(data) {
+      return data.keys().hasAll([
+        'learned', 'favorites', 'quiz', 'best', 'days', 'prefs', 'srs', 'updatedAt', 'userEmail', 'userName'
+      ]) &&
+      data.keys().hasOnly([
+        'learned', 'favorites', 'quiz', 'best', 'days', 'prefs', 'srs', 'updatedAt', 'userEmail', 'userName'
+      ]) &&
+      data.learned is list && data.learned.size() <= 3000 &&
+      (data.learned.size() == 0 || (data.learned[0] is string && data.learned[0].size() <= 16)) &&
+      data.favorites is list && data.favorites.size() <= 3000 &&
+      (data.favorites.size() == 0 || (data.favorites[0] is string && data.favorites[0].size() <= 16)) &&
+      data.quiz is map && data.quiz.size() <= 10 &&
+      data.best is number && data.best >= 0 && data.best <= 100 &&
+      data.days is list && data.days.size() <= 365 &&
+      (data.days.size() == 0 || (data.days[0] is string && data.days[0].size() <= 20)) &&
+      data.prefs is map && data.prefs.size() <= 10 &&
+      data.srs is map && data.srs.size() <= 3000 &&
+      data.updatedAt is number && data.updatedAt >= 0 &&
+      data.userEmail is string && data.userEmail.size() <= 200 &&
+      data.userName is string && data.userName.size() <= 100;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProgress(incoming());
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUserProgress(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'learned', 'favorites', 'quiz', 'best', 'days', 'prefs', 'srs', 'updatedAt', 'userEmail', 'userName'
+        ])
+      );
+      allow delete: if isOwner(userId) && isValidId(userId);
+    }
+  }
+}

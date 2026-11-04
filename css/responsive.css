@@ -8,8 +8,14 @@
 }
 
 @media (pointer: coarse) {
-  .chip {
+  .chip,
+  .soft-chips .chip {
     height: 40px;
+  }
+
+  .hlb-chip,
+  .hero-pill-btn {
+    min-height: 36px;
   }
 
   .icon-btn {
@@ -18,8 +24,8 @@
   }
 
   .search-clear {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
   }
 
   .option {
@@ -78,14 +84,19 @@
     font-size: 10.5px;
   }
 
-  .hscroll,
   .chips {
     margin-inline: -28px;
     padding-inline: 28px;
   }
 
+  .filter-block .chips,
+  .browse-controls-card .chips {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
   .search-field {
-    max-width: 620px;
+    max-width: 100%;
   }
 
   .view[data-view="quiz-setup"] {
@@ -172,8 +183,10 @@
     grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.85fr);
     grid-template-areas:
       "head head"
+      "account account"
       "hero progress"
       "stats progress"
+      "srs srs"
       "up levels";
     gap: 16px 22px;
     align-items: start;
@@ -182,6 +195,16 @@
   .view[data-view="home"] .home-head {
     grid-area: head;
     padding-bottom: 4px;
+  }
+
+  .view[data-view="home"] .home-account-bar {
+    grid-area: account;
+    margin-bottom: 0;
+  }
+
+  .view[data-view="home"] .srs-card {
+    grid-area: srs;
+    margin-top: 0;
   }
 
   .view[data-view="home"] .hero-card {
@@ -236,7 +259,7 @@
   .view[data-view="home"] .hscroll {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 9px;
+    gap: 12px;
     margin: 0;
     padding: 0;
     overflow: visible;
@@ -244,6 +267,54 @@
 
   .view[data-view="home"] .mini-card {
     flex: 1 1 auto;
+  }
+
+  /* Tablet 2-column Profile dashboard */
+  .view[data-view="profile"] {
+    max-width: 1040px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 18px 22px;
+    align-items: start;
+  }
+
+  .view[data-view="profile"] .view-head {
+    grid-column: 1 / -1;
+    padding-bottom: 2px;
+  }
+
+  .view[data-view="profile"] .profile-card {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .view[data-view="profile"] .stat-grid {
+    grid-column: 1;
+    grid-row: 3;
+    margin-top: 0;
+  }
+
+  .view[data-view="profile"] .jlpt-section {
+    grid-column: 2;
+    grid-row: 2 / span 2;
+    margin-top: 0;
+  }
+
+  .view[data-view="profile"] .milestones-section {
+    grid-column: 2;
+    grid-row: 4;
+    margin-top: 0;
+  }
+
+  .view[data-view="profile"] .settings-section {
+    grid-column: 1;
+    grid-row: 4;
+    margin-top: 0;
+  }
+
+  .view[data-view="profile"] .app-footer {
+    grid-column: 1 / -1;
+    margin-top: 8px;
   }
 }
 
@@ -530,6 +601,50 @@
   }
 }
 
+/* ---------- Responsive Study Toolkit Bento Grid (.ref-entries) ---------- */
+
+@media (min-width: 560px) {
+  .ref-entries {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+  }
+
+  .ref-entry.printable {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 960px) {
+  .ref-entries {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .ref-entry.printable {
+    grid-column: span 1;
+  }
+}
+
+@media (min-width: 1320px) {
+  .ref-entries {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .ref-entry {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 15px 16px;
+    gap: 12px;
+  }
+
+  .ref-entry-arrow {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+  }
+}
+
 @media (hover: hover) and (min-width: 1200px) and (pointer: fine) {
   .nav-item:hover .nav-icon {
     background: rgba(255, 255, 255, 0.05);
@@ -541,3 +656,4 @@
     color: var(--primary);
   }
 }
+

@@ -130,6 +130,14 @@ function icon(name, size = 22) {
 
 /* ---------- State ---------- */
 
+const ALL_JLPT_LEVELS = ["N5", "N4", "N3", "N2", "N1"];
+
+function normalizeStudyLevels(arr) {
+  if (!Array.isArray(arr)) return ["N5", "N4"];
+  const valid = ALL_JLPT_LEVELS.filter((lvl) => arr.includes(lvl));
+  return valid.length ? valid : ["N5", "N4"];
+}
+
 function freshState() {
   return {
     learned: [],
@@ -137,8 +145,9 @@ function freshState() {
     quiz: { correct: 0, total: 0 },
     best: 0,
     days: [],
-    prefs: { ruby: true, reading: true, translation: true },
+    prefs: { ruby: true, reading: true, translation: true, studyLevels: ["N5", "N4"] },
     srs: {},
+    userName: "",
   };
 }
 
@@ -169,8 +178,10 @@ function loadState() {
         ruby: pref(raw.prefs && raw.prefs.ruby, true),
         reading: pref(raw.prefs && raw.prefs.reading, true),
         translation: pref(raw.prefs && raw.prefs.translation, true),
+        studyLevels: normalizeStudyLevels(raw.prefs && raw.prefs.studyLevels),
       },
       srs,
+      userName: typeof raw.userName === "string" ? raw.userName.trim().slice(0, 60) : "",
     };
   } catch {
     return base;
@@ -179,9 +190,14 @@ function loadState() {
 
 let state = loadState();
 let currentView = "home";
+let heroOffset = 0;
+let heroAutoRotate = true;
+let heroAutoTimer = null;
 let browseFilter = "all";
 let browseCategory = "all";
 let searchQuery = "";
+let kanjiLimit = 72;
+let kanjiObserver = null;
 let radicalQuery = "";
 let wordsQuery = "";
 let wordsTopic = "all";
@@ -285,6 +301,9 @@ function mergeStates(local, remote) {
     days,
     prefs,
     srs,
+    userName: (remote && typeof remote.userName === "string" && remote.userName.trim())
+      ? remote.userName.trim()
+      : (local.userName || ""),
     updatedAt: Math.max(Number(local.updatedAt) || 0, Number(remote.updatedAt) || 0, Date.now()),
   };
 }
@@ -293,32 +312,41 @@ function updateTopAvatar() {
   const avatarEl = document.querySelector(".topbar .avatar");
   if (!avatarEl) return;
   const user = window.firebaseSync?.currentUser;
+  const fallbackInitial = (user && user.displayName && user.displayName.trim())
+    ? user.displayName.trim()[0].toUpperCase()
+    : (state && state.userName && state.userName.trim())
+      ? state.userName.trim()[0].toUpperCase()
+      : "学";
+  avatarEl.title = user
+    ? `${user.displayName || "Profile"}${user.email ? ` (${user.email})` : ""}`
+    : "View profile";
   if (user && user.photoURL) {
-    // Safe DOM creation - avoid innerHTML for user-controlled data
-    avatarEl.innerHTML = '';
-    const img = document.createElement('img');
+    avatarEl.innerHTML = "";
+    const img = document.createElement("img");
     const url = String(user.photoURL);
-    // Validate URL protocol to prevent javascript: or data: XSS
     try {
       const parsedUrl = new URL(url, window.location.origin);
-      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+      if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
         img.src = url;
         img.alt = user.displayName || "User";
-        img.className = 'avatar-img';
+        img.className = "avatar-img";
+        img.referrerPolicy = "no-referrer";
+        img.onerror = () => {
+          avatarEl.textContent = fallbackInitial;
+          avatarEl.classList.remove("has-photo");
+        };
         avatarEl.appendChild(img);
         avatarEl.classList.add("has-photo");
       } else {
-        // Invalid protocol - fallback to text
-        avatarEl.textContent = "学";
+        avatarEl.textContent = fallbackInitial;
         avatarEl.classList.remove("has-photo");
       }
     } catch {
-      // Invalid URL - fallback to text
-      avatarEl.textContent = "学";
+      avatarEl.textContent = fallbackInitial;
       avatarEl.classList.remove("has-photo");
     }
   } else {
-    avatarEl.textContent = "学";
+    avatarEl.textContent = fallbackInitial;
     avatarEl.classList.remove("has-photo");
   }
 }
@@ -337,9 +365,12 @@ function saveState() {
 
 // Setup Firebase sync hooks
 if (window.firebaseSync) {
-  window.firebaseSync.onAuthStateChanged = () => {
+  window.firebaseSync.onAuthStateChanged = (user) => {
+    if (user && user.displayName && !state.userName) {
+      state.userName = user.displayName;
+    }
     updateTopAvatar();
-    if (currentView === "profile") {
+    if (currentView === "profile" || currentView === "home") {
       render(false);
     }
   };
@@ -350,13 +381,14 @@ if (window.firebaseSync) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {}
+    updateTopAvatar();
     refreshSheet();
     render(false);
     snackbar("অন্য ডিভাইস থেকে ক্লাউড ডাটা সিঙ্ক হয়েছে!", "cloudCheck");
   };
 
   window.firebaseSync.onSyncStatusChanged = () => {
-    if (currentView === "profile") {
+    if (currentView === "profile" || currentView === "home") {
       render(false);
     }
   };
@@ -374,6 +406,30 @@ const PREF_LABELS = {
 
 function displayPrefs() {
   return state.prefs || freshState().prefs;
+}
+
+function activeStudyLevels() {
+  return normalizeStudyLevels(state && state.prefs && state.prefs.studyLevels);
+}
+
+function toggleStudyLevel(level) {
+  if (!ALL_JLPT_LEVELS.includes(level)) return;
+  const current = activeStudyLevels();
+  let next;
+  if (current.includes(level)) {
+    if (current.length <= 1) {
+      snackbar("অন্তত ১টি JLPT লেভেল সিলেক্ট রাখা প্রয়োজন", "info");
+      return;
+    }
+    next = current.filter((l) => l !== level);
+  } else {
+    next = ALL_JLPT_LEVELS.filter((l) => current.includes(l) || l === level);
+  }
+  state.prefs = { ...displayPrefs(), studyLevels: next };
+  heroOffset = 0;
+  saveState();
+  render(false);
+  snackbar(`🎯 আপনার স্টাডি লেভেল: ${next.join(" + ")}`, "target");
 }
 
 function applyDisplayPrefs() {
@@ -425,12 +481,12 @@ function accuracy() {
 
 function currentRank(count) {
   const total = KANJI.length;
-  if (count >= total) return "Grand master";
+  if (count >= total) return "🌸 গ্র্যান্ড মাস্টার · Grand Master";
   const pct = total ? count / total : 0;
-  if (pct >= 0.6) return "Master";
-  if (pct >= 0.3) return "Scholar";
-  if (pct >= 0.1) return "Apprentice";
-  return "Seedling";
+  if (pct >= 0.6) return "🌲 মাস্টার · Master";
+  if (pct >= 0.3) return "🌳 স্কলার · Scholar";
+  if (pct >= 0.1) return "🌿 অঙ্কুর · Apprentice";
+  return "🌱 চারা · Seedling";
 }
 
 function pad2(n) {
@@ -466,7 +522,43 @@ function todayKanji() {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);
   const day = Math.floor((now - start) / 86400000);
-  return KANJI[(day * 7 + now.getFullYear()) % KANJI.length];
+  const learnedSet = new Set((state && state.learned) || []);
+  const targetSet = new Set(activeStudyLevels());
+  const targetPool = KANJI.filter((k) => targetSet.has(k.level));
+  const unlearnedTargetPool = targetPool.filter((k) => !learnedSet.has(k.char));
+  const pool = unlearnedTargetPool.length
+    ? unlearnedTargetPool
+    : (targetPool.length ? targetPool : KANJI);
+  const idx = Math.abs(day * 7 + now.getFullYear() + heroOffset) % pool.length;
+  return pool[idx] || KANJI[0];
+}
+
+function refreshHeroCardInPlace() {
+  const existing = document.getElementById("home-hero-card");
+  if (!existing || typeof heroCardMarkup !== "function") {
+    render(false);
+    return;
+  }
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = heroCardMarkup().trim();
+  const nextCard = wrapper.firstElementChild;
+  if (nextCard) {
+    nextCard.classList.add("hero-swap-anim");
+    existing.replaceWith(nextCard);
+  }
+}
+
+function setupHeroAutoRotate() {
+  if (heroAutoTimer) {
+    clearInterval(heroAutoTimer);
+    heroAutoTimer = null;
+  }
+  if (currentView !== "home" || !heroAutoRotate) return;
+  heroAutoTimer = setInterval(() => {
+    if (currentView !== "home" || !heroAutoRotate || sheetChar) return;
+    heroOffset += 1;
+    refreshHeroCardInPlace();
+  }, 20000);
 }
 
 function greetingText() {
@@ -519,12 +611,81 @@ function render(animate = false) {
   updateChrome();
 
   if (currentView === "radicals") filterRadicals();
+  if (currentView === "browse") setupKanjiInfiniteScroll();
+  setupHeroAutoRotate();
 
   viewEl.classList.remove("animate");
   if (animate) {
     void viewEl.offsetWidth;
     viewEl.classList.add("animate");
   }
+}
+
+let kanjiBatchTimer = null;
+
+function loadMoreKanji() {
+  const list = filteredKanji();
+  if (kanjiLimit >= list.length || kanjiBatchTimer) return;
+  const grid = document.getElementById("kanji-grid");
+  const prevLimit = kanjiLimit;
+  const nextBatchSize = Math.min(72, list.length - prevLimit);
+  if (!grid || nextBatchSize <= 0) return;
+
+  if (typeof kanjiSkeletonMarkup === "function" && typeof window !== "undefined") {
+    const skCount = Math.min(12, nextBatchSize);
+    grid.insertAdjacentHTML("beforeend", kanjiSkeletonMarkup(skCount, "kanji-skeleton-batch"));
+    const moreBtn = document.getElementById("kanji-more");
+    if (moreBtn) {
+      moreBtn.disabled = true;
+      moreBtn.innerHTML = `<span>লোড হচ্ছে…</span>`;
+    }
+    kanjiBatchTimer = setTimeout(() => {
+      kanjiBatchTimer = null;
+      grid.querySelectorAll(".kanji-skeleton-batch").forEach((el) => el.remove());
+      kanjiLimit = prevLimit + 72;
+      const nextSlice = list.slice(prevLimit, kanjiLimit);
+      if (nextSlice.length && typeof kanjiCardMarkup === "function") {
+        grid.insertAdjacentHTML("beforeend", nextSlice.map((k, idx) => kanjiCardMarkup(k, idx)).join(""));
+      }
+      if (typeof syncKanjiPaginationUI === "function") {
+        syncKanjiPaginationUI(list);
+      }
+    }, 130);
+    return;
+  }
+
+  kanjiLimit += 72;
+  const nextSlice = list.slice(prevLimit, kanjiLimit);
+  if (nextSlice.length && typeof kanjiCardMarkup === "function") {
+    grid.insertAdjacentHTML("beforeend", nextSlice.map((k, idx) => kanjiCardMarkup(k, idx)).join(""));
+  } else {
+    renderKanjiGrid({ showSkeleton: false });
+    return;
+  }
+  if (typeof syncKanjiPaginationUI === "function") {
+    syncKanjiPaginationUI(list);
+  }
+}
+
+function setupKanjiInfiniteScroll() {
+  if (kanjiObserver) {
+    kanjiObserver.disconnect();
+    kanjiObserver = null;
+  }
+  if (typeof IntersectionObserver === "undefined") return;
+  const sentinel = document.getElementById("kanji-more-wrap");
+  if (!sentinel || sentinel.classList.contains("hidden")) return;
+  kanjiObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && currentView === "browse") {
+          loadMoreKanji();
+        }
+      }
+    },
+    { rootMargin: "320px 0px" }
+  );
+  kanjiObserver.observe(sentinel);
 }
 
 function updateChrome() {
@@ -547,6 +708,7 @@ function setView(name) {
     quiz = null;
   }
   if (name === "quiz" && quiz && !quiz.active) quiz = null;
+  if (name === "browse") kanjiLimit = 72;
   closeSheet();
   currentView = name;
   render(true);
@@ -598,6 +760,22 @@ function closeSheet() {
     sheetReturnFocus.focus({ preventScroll: true });
   }
   sheetReturnFocus = null;
+}
+
+function navigateSheetKanji(direction) {
+  if (!sheetChar) return;
+  let pool = KANJI;
+  if (currentView === "browse" && typeof filteredKanji === "function") {
+    const list = filteredKanji();
+    if (list && list.length > 0) pool = list;
+  }
+  const idx = pool.findIndex((x) => x.char === sheetChar);
+  if (idx < 0) {
+    if (pool.length > 0) openKanji(pool[0].char);
+    return;
+  }
+  const nextIdx = (idx + direction + pool.length) % pool.length;
+  openKanji(pool[nextIdx].char);
 }
 
 function toggleFavorite(char) {
@@ -1263,53 +1441,274 @@ function getConfusableKanji(targetChar, targetKanji, allKanji) {
   return Array.from(distractors).slice(0, 3);
 }
 
-function generateReadingDistractors(answer, kanji, pool) {
-  const distractors = new Set();
-  const ans = kataToHira(cleanReading(answer));
-  if (!ans) return [];
+const RENDAKU_INITIAL_MAP = {
+  "か": "が", "き": "ぎ", "く": "ぐ", "け": "げ", "こ": "ご",
+  "さ": "ざ", "し": "じ", "す": "ず", "せ": "ぜ", "そ": "ぞ",
+  "た": "だ", "ち": "ぢ", "つ": "づ", "て": "で", "と": "ど",
+  "は": "ば", "ひ": "び", "ふ": "ぶ", "へ": "べ", "ほ": "ぼ",
+};
 
-  // ULTRA-HARD MODE: Make all options look plausible
-  const allKanjiPool = pool || KANJI;
+const HANDAKU_INITIAL_MAP = {
+  "は": "ぱ", "ひ": "ぴ", "ふ": "ぷ", "へ": "ぺ", "ほ": "ぽ",
+};
 
-  // 1. Alternative readings of the EXACT same kanji (Kun vs On) - MOST CONFUSING
-  const allReadings = [
-    ...(kanji.on || []),
-    ...(kanji.kun || [])
-  ].map((r) => kataToHira(cleanReading(r))).filter((r) => r && r !== ans);
-
-  for (const r of shuffle(allReadings)) {
-    if (distractors.size >= 3) break;
-    if (r !== ans && !distractors.has(r)) distractors.add(r);
+function getReadingVariants(base) {
+  const vars = new Set([base]);
+  if (!base) return [];
+  if (RENDAKU_INITIAL_MAP[base[0]]) vars.add(RENDAKU_INITIAL_MAP[base[0]] + base.slice(1));
+  if (HANDAKU_INITIAL_MAP[base[0]]) vars.add(HANDAKU_INITIAL_MAP[base[0]] + base.slice(1));
+  if (base.length >= 2 && "ちつくき".includes(base[base.length - 1])) {
+    const s = base.slice(0, -1) + "っ";
+    vars.add(s);
+    if (RENDAKU_INITIAL_MAP[s[0]]) vars.add(RENDAKU_INITIAL_MAP[s[0]] + s.slice(1));
+    if (HANDAKU_INITIAL_MAP[s[0]]) vars.add(HANDAKU_INITIAL_MAP[s[0]] + s.slice(1));
   }
+  if (base === "く") {
+    vars.add("き");
+    vars.add("こ");
+  }
+  return Array.from(vars);
+}
 
-  // 2. HOMOPHONE readings - Different kanji with SAME reading (Real JLPT killer!)
-  if (distractors.size < 3) {
-    const homophones = allKanjiPool.filter(k => {
-      if (k.char === kanji.char) return false;
-      const readings = [...(k.on || []), ...(k.kun || [])]
-        .map(r => kataToHira(cleanReading(r)));
-      return readings.includes(ans);
-    });
-    for (const h of shuffle(homophones)) {
-      if (distractors.size >= 3) break;
-      const hReading = kataToHira(cleanReading((h.kun && h.kun[0]) || (h.on && h.on[0]) || ""));
-      // Use the actual reading from homophone kanji, not the answer
-      if (hReading && hReading !== ans && !distractors.has(hReading)) {
-        // Find a different reading for this homophone kanji if possible
-        const altReadings = [...(h.on || []), ...(h.kun || [])]
-          .map(r => kataToHira(cleanReading(r)))
-          .filter(r => r !== hReading && r !== ans);
-        const bestAlt = shuffle(altReadings)[0];
-        if (bestAlt && !distractors.has(bestAlt)) {
-          distractors.add(bestAlt);
+let cachedVocabReadingMap = null;
+function getVocabReadingMap() {
+  if (cachedVocabReadingMap) return cachedVocabReadingMap;
+  cachedVocabReadingMap = new Map();
+  if (typeof VOCAB === "object" && VOCAB) {
+    for (const v of Object.values(VOCAB)) {
+      if (v && v.word && v.reading) {
+        cachedVocabReadingMap.set(v.word, kataToHira(v.reading.trim()));
+      }
+    }
+  }
+  return cachedVocabReadingMap;
+}
+
+function buildKanjiReadingCandidates(k) {
+  const list = [];
+  for (const r of (k.on || [])) {
+    const full = kataToHira(cleanReading(r));
+    if (full) list.push({ answer: full, stem: full, okuri: "", type: "on" });
+  }
+  for (const r of (k.kun || [])) {
+    const clean = r.replace(/^-|-$/g, "").trim();
+    const parts = clean.split(".");
+    const stem = kataToHira(parts[0] || "");
+    const okuri = kataToHira(parts.slice(1).join(""));
+    const full = kataToHira(cleanReading(r));
+    if (full) list.push({ answer: full, stem: stem || full, okuri, type: "kun" });
+  }
+  return list;
+}
+
+function getAllValidReadingsForKanji(k) {
+  const set = new Set();
+  if (!k) return set;
+  for (const c of buildKanjiReadingCandidates(k)) {
+    set.add(c.answer);
+    set.add(c.stem);
+    for (const v of getReadingVariants(c.stem)) set.add(v);
+    for (const v of getReadingVariants(c.answer)) set.add(v);
+  }
+  if (k.example && k.example.reading) {
+    set.add(kataToHira(cleanReading(k.example.reading)));
+  }
+  return set;
+}
+
+function resolveQuizContextForKanji(k) {
+  const candidates = buildKanjiReadingCandidates(k);
+  const rawExamples = (k.examples || []).filter((e) => e && e.japanese && e.japanese.includes(k.char));
+  const countOccurrences = (str, ch) => str.split(ch).length - 1;
+  // Prefer sentences where the target kanji appears only once to avoid visual ambiguity
+  const examples = [
+    ...rawExamples.filter((e) => countOccurrences(e.japanese, k.char) === 1),
+    ...rawExamples.filter((e) => countOccurrences(e.japanese, k.char) > 1),
+  ];
+
+  const makeResult = (ex, surface, readingTargetInSurface, answer, reverseInline) => {
+    const underlinedSurface = surface.replace(readingTargetInSurface, `<u>${readingTargetInSurface}</u>`);
+    const reverseSurface = surface.replace(k.char, `<u>${reverseInline}</u>`);
+    return {
+      ex,
+      answer,
+      sentencePromptReading: ex.japanese.replace(surface, underlinedSurface),
+      sentencePromptReverse: ex.japanese.replace(surface, reverseSurface),
+      sentencePromptMeaning: ex.japanese.replace(surface, surface.replace(k.char, `<u>${k.char}</u>`)),
+      sentenceBn: ex.meaningBn || ex.meaningEn || "",
+      verified: true,
+    };
+  };
+
+  // Pass 1 & 2: Match <ruby>SURFACE<rt>RT</rt></ruby> (Pass 1 = exact stem, Pass 2 = rendaku/sokuon variant)
+  for (const allowVariants of [false, true]) {
+    for (const ex of examples) {
+      const re = /<ruby>([^<]*?)<rt>([^<]*?)<\/rt><\/ruby>/g;
+      let m;
+      while ((m = re.exec(ex.ruby || "")) !== null) {
+        const surface = m[1];
+        const rtHira = kataToHira(m[2].trim());
+        if (!surface.includes(k.char) || !rtHira) continue;
+        const afterRuby = (ex.ruby || "").slice(m.index + m[0].length);
+
+        if (surface === k.char) {
+          const matching = candidates.filter((c) =>
+            allowVariants ? getReadingVariants(c.stem).includes(rtHira) : c.stem === rtHira
+          );
+          if (matching.length > 0) {
+            const withOkuri = matching.find((c) => c.okuri && afterRuby.startsWith(c.okuri));
+            const exactNoOkuri = matching.find((c) => !c.okuri && c.answer === rtHira);
+            const chosen = withOkuri || exactNoOkuri || matching[0];
+            if (withOkuri && ex.japanese.includes(k.char + chosen.okuri)) {
+              const fullWord = k.char + chosen.okuri;
+              return makeResult(ex, fullWord, fullWord, chosen.answer, rtHira);
+            }
+            return makeResult(ex, surface, k.char, chosen.answer, rtHira);
+          }
         } else {
-          distractors.add(hReading);
+          const idx = surface.indexOf(k.char);
+          const isPrefix = idx === 0;
+          const isSuffix = idx === surface.length - 1;
+          const sorted = [...candidates].sort((a, b) => {
+            if (a.type !== b.type) return a.type === "on" ? -1 : 1;
+            return b.stem.length - a.stem.length;
+          });
+          for (const c of sorted) {
+            const vars = allowVariants ? getReadingVariants(c.stem) : [c.stem];
+            for (const v of vars) {
+              if (
+                (isPrefix && rtHira.startsWith(v)) ||
+                (isSuffix && rtHira.endsWith(v)) ||
+                (!isPrefix && !isSuffix && rtHira.includes(v))
+              ) {
+                const ans = c.type === "on" ? c.answer : c.stem;
+                return makeResult(ex, surface, k.char, ans, v);
+              }
+            }
+          }
         }
       }
     }
   }
 
-  // 3. Dakuon / Handakuon swap (Tenten / Maru) - Visual phonetic confusion
+  // Pass 3: Jukujikun <ruby> match (underline whole compound surface, e.g. 田舎 -> いなか)
+  for (const ex of examples) {
+    const re = /<ruby>([^<]*?)<rt>([^<]*?)<\/rt><\/ruby>/g;
+    let m;
+    while ((m = re.exec(ex.ruby || "")) !== null) {
+      const surface = m[1];
+      const rtHira = kataToHira(m[2].trim());
+      if (surface.includes(k.char) && rtHira) {
+        return makeResult(ex, surface, surface, rtHira, rtHira);
+      }
+    }
+  }
+
+  // Pass 4: Sentences without <ruby> tags around k.char
+  if (examples.length > 0) {
+    const ex = examples[0];
+    const jp = ex.japanese;
+    const pos = jp.indexOf(k.char);
+    const isKanjiChar = (ch) => ch && ch.charCodeAt(0) >= 0x4e00 && ch.charCodeAt(0) <= 0x9faf;
+    let start = pos;
+    let end = pos + 1;
+    while (start > 0 && isKanjiChar(jp[start - 1])) start--;
+    while (end < jp.length && isKanjiChar(jp[end])) end++;
+    const run = jp.slice(start, end);
+
+    const vocabByWord = getVocabReadingMap();
+    let wordReading = vocabByWord.get(run);
+    let matchedWord = run;
+    if (!wordReading && k.example && k.example.word && jp.includes(k.example.word)) {
+      matchedWord = k.example.word;
+      wordReading = kataToHira(k.example.reading);
+    }
+    if (!wordReading && run.length > 2) {
+      for (let i = Math.max(0, pos - start - 1); i <= pos - start && i + 2 <= run.length; i++) {
+        const sub = run.slice(i, i + 2);
+        if (vocabByWord.has(sub)) {
+          matchedWord = sub;
+          wordReading = vocabByWord.get(sub);
+          break;
+        }
+      }
+    }
+
+    if (wordReading) {
+      const idx = matchedWord.indexOf(k.char);
+      const isPrefix = idx === 0;
+      const isSuffix = idx === matchedWord.length - 1;
+      const sorted = [...candidates].sort((a, b) => {
+        if (a.type !== b.type) return a.type === "on" ? -1 : 1;
+        return b.stem.length - a.stem.length;
+      });
+      for (const c of sorted) {
+        for (const v of getReadingVariants(c.stem)) {
+          if ((isPrefix && wordReading.startsWith(v)) || (isSuffix && wordReading.endsWith(v)) || wordReading.includes(v)) {
+            const ans = matchedWord.length > 1 ? (c.type === "on" ? c.answer : c.stem) : c.answer;
+            return makeResult(ex, matchedWord, k.char, ans, v);
+          }
+        }
+      }
+      return makeResult(ex, matchedWord, matchedWord, wordReading, wordReading);
+    }
+
+    if (run.length > 1 && k.on && k.on[0]) {
+      const onAns = kataToHira(cleanReading(k.on[0]));
+      return makeResult(ex, run, k.char, onAns, onAns);
+    }
+
+    const afterChar = jp.slice(pos + 1);
+    const kunCandidates = candidates.filter((c) => c.type === "kun");
+    const okuriMatched = kunCandidates.find((c) => c.okuri && afterChar.startsWith(c.okuri));
+    const chosenKun = okuriMatched || kunCandidates[0] || candidates[0];
+    if (chosenKun) {
+      return makeResult(ex, k.char, k.char, chosenKun.answer, chosenKun.stem);
+    }
+  }
+
+  // Pass 5: Fallback when kanji has no example sentences
+  const rawFallback = (k.kun && k.kun[0]) || (k.on && k.on[0]) || (k.example && k.example.reading) || "";
+  const fallbackAns = kataToHira(cleanReading(rawFallback)) || k.char;
+  return {
+    ex: null,
+    answer: fallbackAns,
+    sentencePromptReading: "",
+    sentencePromptReverse: "",
+    sentencePromptMeaning: "",
+    sentenceBn: "",
+    verified: false,
+  };
+}
+
+function generateReadingDistractors(answer, kanji, pool) {
+  const distractors = new Set();
+  const ans = kataToHira(cleanReading(answer));
+  if (!ans) return [];
+
+  const allKanjiPool = pool || KANJI;
+  // Never put another valid reading (or stem/rendaku variant) of the SAME kanji as a wrong distractor!
+  const forbidden = getAllValidReadingsForKanji(kanji);
+  forbidden.add(ans);
+  const canUse = (cand) => Boolean(cand && !forbidden.has(cand) && !distractors.has(cand));
+
+  // 1. Readings of visually confusable kanji (Real JLPT style: e.g. 車 vs 東/連)
+  if (CONFUSABLE_KANJI[kanji.char]) {
+    for (const confChar of shuffle(CONFUSABLE_KANJI[kanji.char])) {
+      if (distractors.size >= 3) break;
+      const confK = byChar[confChar];
+      if (!confK) continue;
+      const confReadings = [
+        ...(confK.on || []),
+        ...(confK.kun || []),
+      ].map((r) => kataToHira(cleanReading(r))).filter(canUse);
+      if (confReadings.length > 0) {
+        distractors.add(confReadings[0]);
+      }
+    }
+  }
+
+  // 2. Dakuon / Handakuon swap (Tenten / Maru) - Visual phonetic confusion
   if (distractors.size < 3) {
     const chars = ans.split("");
     const dakuonOptions = [];
@@ -1322,11 +1721,11 @@ function generateReadingDistractors(answer, kanji, pool) {
     }
     for (const opt of shuffle(dakuonOptions)) {
       if (distractors.size >= 3) break;
-      if (opt !== ans && !distractors.has(opt)) distractors.add(opt);
+      if (canUse(opt)) distractors.add(opt);
     }
   }
 
-  // 4. Chōon (long vowel) variations - Extends/shortens
+  // 3. Chōon (long vowel) variations - Extends/shortens
   if (distractors.size < 3) {
     const choonVariants = [];
     if (ans.includes("う") && ans.length > 2) {
@@ -1335,27 +1734,25 @@ function generateReadingDistractors(answer, kanji, pool) {
     if (ans.includes("い") && ans.length > 2) {
       choonVariants.push(ans.replace(/い/g, ""));
     }
-    // Add long vowel
     if (ans.length >= 2) {
       const lastChar = ans[ans.length - 1];
-      const longVowelMap = { 'あ': 'ああ', 'い': 'いい', 'う': 'うう', 'え': 'ええ', 'お': 'おお' };
+      const longVowelMap = { "あ": "ああ", "い": "いい", "う": "うう", "え": "ええ", "お": "おお" };
       if (longVowelMap[lastChar]) {
         choonVariants.push(ans.slice(0, -1) + longVowelMap[lastChar]);
       }
     }
     for (const variant of shuffle(choonVariants)) {
       if (distractors.size >= 3) break;
-      if (variant && variant !== ans && !distractors.has(variant)) distractors.add(variant);
+      if (canUse(variant)) distractors.add(variant);
     }
   }
 
-  // 5. Sokuon (っ) variations - Makes it look like small tsu confusion
+  // 4. Sokuon (っ) variations - Makes it look like small tsu confusion
   if (distractors.size < 3) {
     const sokuonVariants = [];
     if (ans.includes("っ")) {
       sokuonVariants.push(ans.replace(/っ/g, ""));
     } else if (ans.length >= 2) {
-      // Try sokuon at different positions
       for (let i = 1; i < ans.length; i++) {
         sokuonVariants.push(ans.slice(0, i) + "っ" + ans.slice(i));
         if (sokuonVariants.length >= 3) break;
@@ -1363,11 +1760,11 @@ function generateReadingDistractors(answer, kanji, pool) {
     }
     for (const variant of shuffle(sokuonVariants)) {
       if (distractors.size >= 3) break;
-      if (variant && variant !== ans && !distractors.has(variant)) distractors.add(variant);
+      if (canUse(variant)) distractors.add(variant);
     }
   }
 
-  // 6. Look-alike Hiragana - Visual confusion (ひ/ほ/ふ, と/ど/つ)
+  // 5. Look-alike Hiragana - Visual confusion (ひ/ほ/ふ, と/ど/つ)
   if (distractors.size < 3) {
     const chars = ans.split("");
     const visualVariants = [];
@@ -1385,13 +1782,13 @@ function generateReadingDistractors(answer, kanji, pool) {
     }
     for (const variant of shuffle(visualVariants)) {
       if (distractors.size >= 3) break;
-      if (variant !== ans && !distractors.has(variant)) distractors.add(variant);
+      if (canUse(variant)) distractors.add(variant);
     }
   }
 
-  // 7. Same kanji pool but DIFFERENT reading patterns - Mix kun/on
+  // 6. Same kanji pool readings from other kanji at the same level
   if (distractors.size < 3) {
-    const sameLevelKanji = allKanjiPool.filter(k =>
+    const sameLevelKanji = allKanjiPool.filter((k) =>
       k.char !== kanji.char && k.level === kanji.level
     );
     const readingVariants = [];
@@ -1399,34 +1796,14 @@ function generateReadingDistractors(answer, kanji, pool) {
       const otherReading = kataToHira(cleanReading(
         (other.kun && other.kun[0]) || (other.on && other.on[0]) || ""
       ));
-      if (otherReading && otherReading !== ans) {
+      if (canUse(otherReading)) {
         readingVariants.push(otherReading);
       }
       if (readingVariants.length >= 20) break;
     }
     for (const variant of shuffle(readingVariants)) {
       if (distractors.size >= 3) break;
-      if (variant !== ans && !distractors.has(variant)) distractors.add(variant);
-    }
-  }
-
-  // 8. Katakana version of hiragana reading (for mixed script confusion)
-  if (distractors.size < 3 && ans.length > 0) {
-    const kanaMap = {
-      'あ': 'ア', 'い': 'イ', 'う': 'ウ', 'え': 'エ', 'お': 'オ',
-      'か': 'カ', 'き': 'キ', 'く': 'ク', 'け': 'ケ', 'こ': 'コ',
-      'さ': 'サ', 'し': 'シ', 'す': 'ス', 'せ': 'セ', 'そ': 'ソ',
-      'た': 'タ', 'ち': 'チ', 'つ': 'ツ', 'て': 'テ', 'と': 'ト',
-      'な': 'ナ', 'に': 'ニ', 'ぬ': 'ヌ', 'ね': 'ネ', 'の': 'ノ',
-      'は': 'ハ', 'ひ': 'ヒ', 'ふ': 'フ', 'へ': 'ヘ', 'ほ': 'ホ',
-      'ま': 'マ', 'み': 'ミ', 'む': 'ム', 'め': 'メ', 'も': 'モ',
-      'や': 'ヤ', 'ゆ': 'ユ', 'よ': 'ヨ',
-      'ら': 'ラ', 'り': 'リ', 'る': 'ル', 'れ': 'レ', 'ろ': 'ロ',
-      'わ': 'ワ', 'を': 'ヲ', 'ん': 'ン'
-    };
-    const katakanaVersion = ans.split('').map(c => kanaMap[c] || c).join('');
-    if (katakanaVersion !== ans && !distractors.has(katakanaVersion)) {
-      distractors.add(katakanaVersion);
+      if (canUse(variant)) distractors.add(variant);
     }
   }
 
@@ -1627,50 +2004,49 @@ function startQuiz(level = quizLevel, mode = quizMode, category = quizCategory, 
       else effectiveMode = "meaning";
     }
 
-    // Find best example sentence for context
-    const ex = (k.examples && k.examples.find((e) => e.japanese && e.japanese.includes(k.char))) || (k.examples && k.examples[0]);
+    // Resolve context-accurate reading and underlined sentence prompts
+    const ctx = resolveQuizContextForKanji(k);
 
     if (effectiveMode === "reverse") {
       answer = k.char;
       mondaiType = "問題２ · 表記";
       promptText = primaryMeaning(k);
       promptEn = secondaryMeaning(k);
-      const reading = kataToHira(cleanReading((k.kun && k.kun[0]) || (k.on && k.on[0]) || (k.example && k.example.reading) || ""));
-      if (ex && ex.japanese && ex.japanese.includes(k.char) && reading) {
-        sentencePrompt = ex.japanese.replace(k.char, `<u>${reading}</u>`);
-        sentenceBn = ex.meaningBn || "";
+      if (ctx.sentencePromptReverse) {
+        sentencePrompt = ctx.sentencePromptReverse;
+        sentenceBn = ctx.sentenceBn;
       }
       distractors = getConfusableKanji(k.char, k, KANJI);
     } else if (effectiveMode === "reading") {
       mondaiType = "問題１ · 漢字読み";
-      const rawReading = (k.kun && k.kun[0]) || (k.on && k.on[0]) || (k.example && k.example.reading) || "";
-      answer = kataToHira(cleanReading(rawReading)) || k.char;
+      answer = ctx.answer || k.char;
       promptText = k.char;
-      if (ex && ex.japanese && ex.japanese.includes(k.char)) {
-        sentencePrompt = ex.japanese.replace(k.char, `<u>${k.char}</u>`);
-        sentenceBn = ex.meaningBn || "";
+      if (ctx.sentencePromptReading) {
+        sentencePrompt = ctx.sentencePromptReading;
+        sentenceBn = ctx.sentenceBn;
       }
       distractors = generateReadingDistractors(answer, k, KANJI);
     } else if (effectiveMode === "listening") {
       mondaiType = "聴解 · Listening";
       answer = primaryMeaning(k);
-      tts = (k.kunTts && k.kunTts[0]) || (k.kun[0] ? cleanReading(k.kun[0]) : "") || (k.onTts && k.onTts[0]) || cleanReading(k.on[0]) || k.char;
+      tts = (k.kunTts && k.kunTts[0]) || (k.kun && k.kun[0] ? cleanReading(k.kun[0]) : "") || (k.onTts && k.onTts[0]) || (k.on && k.on[0] ? cleanReading(k.on[0]) : "") || k.char;
       distractors = generateMeaningDistractors(k, KANJI);
     } else {
       // meaning
       mondaiType = "意味 · Meaning";
       answer = primaryMeaning(k);
       promptText = k.char;
-      if (ex && ex.japanese && ex.japanese.includes(k.char)) {
-        sentencePrompt = ex.japanese.replace(k.char, `<u>${k.char}</u>`);
-        sentenceBn = ex.meaningBn || "";
+      if (ctx.sentencePromptMeaning) {
+        sentencePrompt = ctx.sentencePromptMeaning;
+        sentenceBn = ctx.sentenceBn;
       }
       distractors = generateMeaningDistractors(k, KANJI);
     }
 
     // Safety fallback: ensure exactly 3 distinct distractors
     const finalDistractors = [];
-    const seen = new Set([answer]);
+    const seen = effectiveMode === "reading" ? getAllValidReadingsForKanji(k) : new Set([answer]);
+    seen.add(answer);
     for (const d of distractors) {
       if (d && !seen.has(d)) {
         seen.add(d);
@@ -1692,9 +2068,14 @@ function startQuiz(level = quizLevel, mode = quizMode, category = quizCategory, 
       }
     }
 
+    const acceptedAnswers = effectiveMode === "reading"
+      ? Array.from(new Set([answer, ...(!ctx.verified ? getAllValidReadingsForKanji(k) : [])]))
+      : [answer];
+
     return {
       char: k.char,
       answer,
+      acceptedAnswers,
       meaning: primaryMeaning(k),
       meaningEn: secondaryMeaning(k),
       promptText,
@@ -1754,7 +2135,7 @@ function answerQuestion(selected) {
   if (!q) return;
 
   quiz.selected = selected;
-  const isRight = selected === q.answer;
+  const isRight = selected === q.answer || (Array.isArray(q.acceptedAnswers) && q.acceptedAnswers.includes(selected));
   if (isRight) quiz.score += 1;
 
   state.quiz.total += 1;
@@ -1766,6 +2147,7 @@ function answerQuestion(selected) {
     char: q.char,
     meaning: q.meaning,
     meaningEn: q.meaningEn,
+    answer: q.answer,
     correct: isRight,
     selected,
   });
@@ -1799,6 +2181,43 @@ function answerQuestion(selected) {
   }, 900);
 }
 
+function submitFlashcardRating(rating) {
+  if (!quiz || !quiz.active || quiz.mode !== "flashcard") return;
+  const q = quiz.questions[quiz.index];
+  if (!q) return;
+
+  recordStudy();
+  if (rating === "again") {
+    recordSrsAnswer(q.char, false);
+    quiz.answers.push({ char: q.char, meaning: primaryMeaning(q), correct: false, selected: "ভুলে গেছি" });
+  } else if (rating === "easy") {
+    recordSrsAnswer(q.char, true);
+    recordSrsAnswer(q.char, true);
+    quiz.score += 1;
+    quiz.answers.push({ char: q.char, meaning: primaryMeaning(q), correct: true, selected: "খুব সহজ" });
+  } else {
+    recordSrsAnswer(q.char, true);
+    quiz.score += 1;
+    quiz.answers.push({ char: q.char, meaning: primaryMeaning(q), correct: true, selected: "মনে আছে" });
+  }
+
+  quiz.index += 1;
+  quiz.revealed = false;
+
+  if (quiz.index >= quiz.questions.length) {
+    quiz.active = false;
+    quiz.done = true;
+    state.best = Math.max(state.best, quiz.score);
+    saveState();
+    render(true);
+    window.scrollTo(0, 0);
+  } else {
+    saveState();
+    render(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
 function finishMockExam() {
   clearInterval(mockInterval);
   clearTimeout(quizTimer);
@@ -1819,7 +2238,21 @@ function quitQuiz() {
   snackbar("Quiz ended — no worries", "info");
 }
 
-/* ---------- Reset ---------- */
+/* ---------- Reset & Shortcuts Dialogs ---------- */
+
+function openShortcutsDialog() {
+  const dialog = document.getElementById("shortcuts-dialog");
+  if (dialog && !dialog.open) {
+    dialog.showModal();
+  }
+}
+
+function closeShortcutsDialog() {
+  const dialog = document.getElementById("shortcuts-dialog");
+  if (dialog && dialog.open) {
+    dialog.close();
+  }
+}
 
 function resetProgress() {
   clearTimeout(quizTimer);
@@ -1919,18 +2352,63 @@ function handleAction(event) {
     case "toggle-learned":
       toggleLearned(target.dataset.char || sheetChar);
       break;
+    case "hero-learn": {
+      const char = target.dataset.char;
+      const k = byChar[char];
+      if (!k) break;
+      const alreadyLearned = state.learned.includes(char);
+      if (!alreadyLearned) {
+        state.learned = [...state.learned, char];
+        recordStudy();
+        if (!state.srs) state.srs = {};
+        state.srs[char] = {
+          stage: 1,
+          nextReview: Date.now() + SRS_INTERVALS[1],
+          lastReview: Date.now(),
+          streak: 1,
+        };
+      }
+      heroOffset += 1;
+      saveState();
+      render(false);
+      const nextK = todayKanji();
+      snackbar(`「${char}」শেখা সম্পন্ন! নতুন কাঞ্জি「${nextK.char}」এসেছে ✨`, "check");
+      break;
+    }
+    case "next-daily-kanji": {
+      heroOffset += 1;
+      refreshHeroCardInPlace();
+      setupHeroAutoRotate();
+      const nextK = todayKanji();
+      snackbar(`নতুন কাঞ্জি: 「${nextK.char}」— ${primaryMeaning(nextK)}`, "refresh");
+      break;
+    }
+    case "toggle-hero-auto": {
+      heroAutoRotate = !heroAutoRotate;
+      refreshHeroCardInPlace();
+      setupHeroAutoRotate();
+      snackbar(heroAutoRotate ? "স্বয়ংক্রিয় কাঞ্জি পরিবর্তন চালু হয়েছে (প্রতি ২০ সেকেন্ডে)" : "স্বয়ংক্রিয় কাঞ্জি পরিবর্তন বন্ধ করা হয়েছে", "info");
+      break;
+    }
+    case "toggle-study-level": {
+      toggleStudyLevel(target.dataset.level);
+      break;
+    }
     case "see-all":
       browseFilter = "all";
       searchQuery = "";
+      kanjiLimit = 72;
       setView("browse");
       break;
     case "filter-level":
       browseFilter = target.dataset.level;
       searchQuery = "";
+      kanjiLimit = 72;
       setView("browse");
       break;
     case "filter": {
       browseFilter = target.dataset.filter;
+      kanjiLimit = 72;
       document.querySelectorAll("[data-filter]").forEach((chip) => {
         const active = chip.dataset.filter === browseFilter;
         chip.classList.toggle("active", active);
@@ -1941,12 +2419,17 @@ function handleAction(event) {
     }
     case "filter-category": {
       browseCategory = target.dataset.category || "all";
+      kanjiLimit = 72;
       syncChips("filter-category", "category", browseCategory);
       renderKanjiGrid();
       break;
     }
+    case "kanji-more":
+      loadMoreKanji();
+      break;
     case "clear-search": {
       searchQuery = "";
+      kanjiLimit = 72;
       const input = document.getElementById("kanji-search");
       if (input) {
         input.value = "";
@@ -2008,11 +2491,76 @@ function handleAction(event) {
       setView("printable");
       break;
     case "printable-level":
-      printableLevel = target.dataset.level || "N5";
+      printableLevel = target.dataset.level || "target";
+      printablePage = 0;
       render(false);
       break;
+    case "printable-page-prev":
+      if (printablePage > 0) {
+        printablePage--;
+        render(false);
+      }
+      break;
+    case "printable-page-next":
+      printablePage++;
+      render(false);
+      break;
+    case "printable-per-page": {
+      const cnt = parseInt(target.dataset.count, 10);
+      if ([2, 3, 4, 5, 6].includes(cnt)) {
+        printablePerPage = cnt;
+        printablePage = 0;
+        render(false);
+      }
+      break;
+    }
+    case "printable-mode":
+      printableStyleMode = target.dataset.mode || "school";
+      render(false);
+      break;
+    case "printable-meaning-toggle":
+      printableShowMeaning = !printableShowMeaning;
+      render(false);
+      break;
+    case "printable-custom-apply": {
+      const inp = document.getElementById("printable-custom-input");
+      const rawText = inp ? inp.value.trim() : "";
+      if (rawText) {
+        const kanjiOnly = typeof extractKanjiOnly === "function"
+          ? extractKanjiOnly(rawText)
+          : Array.from(rawText).filter((ch) => /[\u4e00-\u9faf]/.test(ch));
+
+        if (kanjiOnly.length === 0) {
+          snackbar("কোনো কাঞ্জি পাওয়া যায়নি! (হিরাগানা/কাতাকানা বা রোমাজি ছাড়া কাঞ্জি লিখুন বা পেস্ট করুন)", "info");
+          break;
+        }
+
+        // Cleaned string containing only extracted unique kanji
+        printableCustomChars = kanjiOnly.join("");
+        printableLevel = "custom";
+        printablePage = 0;
+        render(false);
+
+        const matched = getPrintableKanjiPool();
+        const nonDbCount = kanjiOnly.length - matched.length;
+        if (matched.length > 0) {
+          const msg = nonDbCount > 0
+            ? `ফিল্টার করে ${matched.length}টি কাঞ্জি শিটে নেওয়া হয়েছে (${nonDbCount}টি ডাটাবেসের বাইরে বাদ পড়েছে)`
+            : `টেক্সট থেকে ${matched.length}টি কাঞ্জি বের করে প্র্যাকটিস শিট তৈরি হয়েছে!`;
+          snackbar(msg, "check");
+        } else {
+          snackbar("কাঞ্জিগুলো আমাদের JLPT N5–N1 ডাটাবেসে পাওয়া যায়নি", "info");
+        }
+      } else {
+        snackbar("অনুগ্রহ করে টেক্সট বা কাঞ্জি পেস্ট করুন (যেমন: 私は日本語を勉強します)", "info");
+      }
+      break;
+    }
+    case "download-printable-sheet":
+      downloadSchoolWorksheetCanvas();
+      break;
     case "window-print":
-      window.print();
+      triggerPrintablePrint();
       break;
     case "mock-submit":
       if (confirm("আপনি কি এখনই পরীক্ষা সমাপ্ত করে JLPT স্কোরকার্ড দেখতে চান?")) {
@@ -2162,57 +2710,7 @@ function handleAction(event) {
       if (!quiz || !quiz.active) break;
       const btn = target.closest("[data-rating]");
       const rating = btn ? btn.dataset.rating : "good";
-      const q = quiz.questions[quiz.index];
-
-      recordStudy();
-      if (rating === "again") {
-        recordSrsAnswer(q.char, false);
-        quiz.answers.push({ char: q.char, meaning: primaryMeaning(q), correct: false, selected: "ভুলে গেছি" });
-      } else if (rating === "easy") {
-        recordSrsAnswer(q.char, true);
-        recordSrsAnswer(q.char, true);
-        quiz.score += 1;
-        quiz.answers.push({ char: q.char, meaning: primaryMeaning(q), correct: true, selected: "খুব সহজ" });
-      } else {
-        recordSrsAnswer(q.char, true);
-        quiz.score += 1;
-        quiz.answers.push({ char: q.char, meaning: primaryMeaning(q), correct: true, selected: "মনে আছে" });
-      }
-
-      quiz.index += 1;
-      quiz.revealed = false;
-
-      if (quiz.index >= quiz.questions.length) {
-        quiz.active = false;
-        quiz.done = true;
-        state.best = Math.max(state.best, quiz.score);
-        saveState();
-        render(true);
-        window.scrollTo(0, 0);
-      } else {
-        saveState();
-        render(true);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-      break;
-    }
-    case "export-backup": {
-      const jsonStr = JSON.stringify(state, null, 2);
-      const blob = new Blob([jsonStr], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `kanji-study-backup-${isoDate()}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      snackbar("প্রগ্রেস ব্যাকআপ ফাইল ডাউনলোড হয়েছে!", "download");
-      break;
-    }
-    case "trigger-import-backup": {
-      const fileInput = document.getElementById("backup-file-input");
-      if (fileInput) fileInput.click();
+      submitFlashcardRating(rating);
       break;
     }
     case "speak":
@@ -2227,6 +2725,12 @@ function handleAction(event) {
     case "back-home":
       quiz = null;
       setView("home");
+      break;
+    case "open-shortcuts":
+      openShortcutsDialog();
+      break;
+    case "close-shortcuts":
+      closeShortcutsDialog();
       break;
     case "reset-data": {
       const dialog = document.getElementById("confirm-dialog");
@@ -2245,9 +2749,8 @@ function handleAction(event) {
       snackbar(`A calm, dark kanji trainer for JLPT N5–N3 with ${KANJI.length} kanji and ${RADICALS.length} radicals. Built with plain HTML, CSS and JS.`, "info");
       break;
     case "google-signin": {
-      if (!window.firebaseSync || !window.firebaseSync.isConfigured()) {
-        const dialog = document.getElementById("firebase-dialog");
-        if (dialog) dialog.showModal();
+      if (!window.firebaseSync) {
+        snackbar("ক্লাউড সিঙ্ক লোড হচ্ছে, অনুগ্রহ করে আবার চেষ্টা করুন", "x");
         break;
       }
       snackbar("Google সাইন-ইন উইন্ডো খোলা হচ্ছে...", "cloud");
@@ -2277,67 +2780,6 @@ function handleAction(event) {
       if (window.firebaseSync && window.firebaseSync.currentUser) {
         window.firebaseSync.saveToCloud(state, true);
         snackbar("ক্লাউডের সাথে সকল ডাটা সিঙ্ক করা হচ্ছে...", "cloud");
-      }
-      break;
-    }
-    case "open-firebase-config": {
-      const dialog = document.getElementById("firebase-dialog");
-      const textarea = document.getElementById("firebase-config-input");
-      if (dialog) {
-        if (textarea) {
-          const cfg = window.firebaseSync?.getConfig();
-          if (cfg) {
-            textarea.value = JSON.stringify(cfg, null, 2);
-          }
-        }
-        dialog.showModal();
-      }
-      break;
-    }
-    case "close-firebase-dialog": {
-      const dialog = document.getElementById("firebase-dialog");
-      if (dialog && dialog.open) dialog.close();
-      break;
-    }
-    case "save-firebase-config": {
-      const textarea = document.getElementById("firebase-config-input");
-      const dialog = document.getElementById("firebase-dialog");
-      if (!textarea || !textarea.value.trim()) {
-        snackbar("অনুগ্রহ করে সঠিক Firebase JSON কনফিগ পেস্ট করুন", "x");
-        break;
-      }
-      try {
-        let val = textarea.value.trim();
-        if (val.includes("{") && val.includes("}")) {
-          const start = val.indexOf("{");
-          const end = val.lastIndexOf("}");
-          val = val.substring(start, end + 1);
-        }
-        let parsed;
-        try {
-          parsed = JSON.parse(val);
-        } catch (jsonErr) {
-          // Fallback: attempt to parse relaxed JSON (e.g., unquoted keys, trailing commas)
-          // by wrapping in a safe eval-like parse. But we NEVER use new Function() or eval()
-          // with user input. Instead we attempt a simple cleanup.
-          const cleaned = val
-            .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":')  // unquoted keys
-            .replace(/,(\s*[}\]])/g, '$1');  // trailing commas
-          try {
-            parsed = JSON.parse(cleaned);
-          } catch {
-            throw new Error("JSON ফরম্যাট সঠিক নয়। ডাবল কোটেশন ব্যবহার করুন।");
-          }
-        }
-        if (!parsed || !parsed.apiKey || !parsed.projectId) {
-          throw new Error("apiKey এবং projectId আবশ্যক");
-        }
-        window.firebaseSync.saveConfig(parsed);
-        if (dialog && dialog.open) dialog.close();
-        snackbar("Firebase সফলভাবে কানেক্ট হয়েছে!", "check");
-        render(false);
-      } catch (err) {
-        snackbar(`কনফিগ সঠিক নয়: ${err.message}`, "x");
       }
       break;
     }
@@ -2429,12 +2871,13 @@ function handleInput(event) {
   }
   if (event.target.id !== "kanji-search") return;
   searchQuery = event.target.value;
+  kanjiLimit = 72;
   const clear = viewEl.querySelector(".search-clear");
   if (clear) clear.classList.toggle("hidden", !searchQuery);
-  renderKanjiGrid();
+  renderKanjiGrid({ delay: 90 });
 }
 
-const RIPPLE_SELECTOR = ".btn, .icon-btn, .nav-item, .chip, .kanji-card, .mini-card, .level-row, .quiz-level, .option, .hero-tap, .setting-row, .radical-entry, .radical-card, .radical-kanji";
+const RIPPLE_SELECTOR = ".btn, .icon-btn, .nav-item, .chip, .kanji-card, .mini-card, .level-row, .quiz-level, .option, .hero-tap, .setting-row, .radical-entry, .ref-entry, .radical-card, .radical-kanji";
 
 function handleRipple(event) {
   const host = event.target.closest(RIPPLE_SELECTOR);
@@ -2452,29 +2895,671 @@ function handleRipple(event) {
 }
 
 function handleKeydown(event) {
-  if (event.key === "Escape") {
-    if (sheetChar) closeSheet();
+  // Allow native browser shortcuts like Ctrl+R, Ctrl+C, Ctrl+Shift+I
+  // Special exception: Ctrl+P / Cmd+P on printable view triggers sheet print
+  if (event.ctrlKey || event.metaKey || event.altKey) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p" && currentView === "printable") {
+      event.preventDefault();
+      triggerPrintablePrint();
+    }
     return;
   }
-  // Quiz answer shortcuts: 1-4 or A-D
-  if (quiz && quiz.active && quiz.selected === null && quiz.mode !== "flashcard") {
-    const q = quiz.questions && quiz.questions[quiz.index];
-    if (q && q.options) {
-      let optIdx = -1;
-      if (event.key >= "1" && event.key <= "4") {
-        optIdx = parseInt(event.key, 10) - 1;
-      } else {
-        const k = event.key.toLowerCase();
-        if (k === "a") optIdx = 0;
-        else if (k === "b") optIdx = 1;
-        else if (k === "c") optIdx = 2;
-        else if (k === "d") optIdx = 3;
+
+  const inInput = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName) || !!document.activeElement?.isContentEditable;
+  const shortcutsDialog = document.getElementById("shortcuts-dialog");
+  const confirmDialog = document.getElementById("confirm-dialog");
+
+  // 1. ESCAPE: blurs input, closes modals / sheets, or navigates back
+  if (event.key === "Escape") {
+    if (inInput) {
+      document.activeElement.blur();
+      return;
+    }
+    if (shortcutsDialog && shortcutsDialog.open) {
+      closeShortcutsDialog();
+      return;
+    }
+    if (confirmDialog && confirmDialog.open) {
+      confirmDialog.close();
+      return;
+    }
+    if (sheetChar) {
+      closeSheet();
+      return;
+    }
+    if (quiz && quiz.active) {
+      quitQuiz();
+      return;
+    }
+    if (quiz && quiz.done) {
+      quiz = null;
+      render(true);
+      return;
+    }
+    if (["radicals", "words", "grammar", "reader", "printable"].includes(currentView)) {
+      setView("browse");
+      return;
+    }
+    if (currentView === "settings") {
+      setView("profile");
+      return;
+    }
+    return;
+  }
+
+  // Prevent single-key hotkeys when typing in search or text boxes
+  if (inInput) {
+    return;
+  }
+
+  // 2. SHORTCUTS HELP MODAL: ? or Shift+/
+  if (event.key === "?" || (event.shiftKey && event.key === "/")) {
+    event.preventDefault();
+    if (shortcutsDialog && shortcutsDialog.open) {
+      closeShortcutsDialog();
+    } else {
+      openShortcutsDialog();
+    }
+    return;
+  }
+
+  // 3. SEARCH FOCUS: /
+  if (event.key === "/") {
+    event.preventDefault();
+    if (currentView === "words") {
+      const inp = document.getElementById("word-search");
+      if (inp) { inp.focus(); return; }
+    } else if (currentView === "radicals") {
+      const inp = document.getElementById("radical-search");
+      if (inp) { inp.focus(); return; }
+    } else if (currentView === "printable") {
+      const inp = document.getElementById("printable-custom-input");
+      if (inp) { inp.focus(); return; }
+    }
+    if (currentView !== "browse") {
+      setView("browse");
+    }
+    focusSearch();
+    return;
+  }
+
+  // 4. KANJI DETAIL SHEET NAVIGATION & ACTIONS
+  if (sheetChar) {
+    const k = byChar[sheetChar];
+    if (event.key === "ArrowLeft" || event.key.toLowerCase() === "j") {
+      event.preventDefault();
+      navigateSheetKanji(-1);
+      return;
+    }
+    if (event.key === "ArrowRight" || event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      navigateSheetKanji(1);
+      return;
+    }
+    if (event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      toggleFavorite(sheetChar);
+      return;
+    }
+    if (event.key.toLowerCase() === "m" || event.key.toLowerCase() === "l") {
+      event.preventDefault();
+      toggleLearned(sheetChar);
+      return;
+    }
+    if (event.key.toLowerCase() === "s" || event.key.toLowerCase() === "v") {
+      event.preventDefault();
+      if (k) {
+        const toSpeak = (k.onTts && k.onTts[0]) || (k.kun && k.kun[0]) || k.char;
+        speakJapanese(toSpeak);
       }
-      if (optIdx >= 0 && optIdx < q.options.length) {
+      return;
+    }
+    if (event.key === " " || event.key.toLowerCase() === "p") {
+      event.preventDefault();
+      strokePlay();
+      return;
+    }
+    if (event.key === "[") {
+      event.preventDefault();
+      strokeStep(-1);
+      return;
+    }
+    if (event.key === "]") {
+      event.preventDefault();
+      strokeStep(1);
+      return;
+    }
+    if (event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      clearPracticeCanvas();
+      return;
+    }
+    if (event.key.toLowerCase() === "w") {
+      event.preventDefault();
+      const nextMode = (typeof stageMode !== "undefined" && stageMode === "watch") ? "draw" : "watch";
+      setStageMode(nextMode);
+      return;
+    }
+    return;
+  }
+
+  // 5. ACTIVE QUIZ SHORTCUTS
+  if (quiz && quiz.active) {
+    if (quiz.mode === "flashcard") {
+      if (!quiz.revealed) {
+        if (event.key === " " || event.key === "Enter" || event.key === "ArrowDown" || event.key === "ArrowRight") {
+          event.preventDefault();
+          quiz.revealed = true;
+          render(false);
+          return;
+        }
+      } else {
+        if (event.key === "1" || event.key.toLowerCase() === "a" || event.key === "ArrowLeft") {
+          event.preventDefault();
+          submitFlashcardRating("again");
+          return;
+        }
+        if (event.key === "2" || event.key.toLowerCase() === "g" || event.key === "ArrowDown" || event.key === " ") {
+          event.preventDefault();
+          submitFlashcardRating("good");
+          return;
+        }
+        if (event.key === "3" || event.key.toLowerCase() === "e" || event.key === "ArrowRight") {
+          event.preventDefault();
+          submitFlashcardRating("easy");
+          return;
+        }
+      }
+      if (event.key.toLowerCase() === "s" || event.key.toLowerCase() === "v") {
         event.preventDefault();
-        answerQuestion(q.options[optIdx]);
+        const q = quiz.questions[quiz.index];
+        if (q) speakJapanese(q.tts || q.char);
+        return;
+      }
+      return;
+    }
+
+    // Multiple-choice / listening / sentence quiz questions
+    if (quiz.selected === null) {
+      const q = quiz.questions && quiz.questions[quiz.index];
+      if (q && q.options) {
+        let optIdx = -1;
+        if (event.key >= "1" && event.key <= "4") {
+          optIdx = parseInt(event.key, 10) - 1;
+        } else {
+          const lk = event.key.toLowerCase();
+          if (lk === "a") optIdx = 0;
+          else if (lk === "b") optIdx = 1;
+          else if (lk === "c") optIdx = 2;
+          else if (lk === "d") optIdx = 3;
+        }
+        if (optIdx >= 0 && optIdx < q.options.length) {
+          event.preventDefault();
+          answerQuestion(q.options[optIdx]);
+          return;
+        }
       }
     }
+    if (event.key.toLowerCase() === "s" || event.key.toLowerCase() === "v") {
+      event.preventDefault();
+      const q = quiz.questions[quiz.index];
+      if (q && q.tts) speakJapanese(q.tts);
+      return;
+    }
+    return;
+  }
+
+  // 6. QUIZ RESULTS SCREEN
+  if (quiz && quiz.done) {
+    if (event.key.toLowerCase() === "r" || event.key === "Enter") {
+      event.preventDefault();
+      startQuiz(quiz.level, quiz.mode, quiz.category);
+      return;
+    }
+    if (event.key.toLowerCase() === "h") {
+      event.preventDefault();
+      quiz = null;
+      setView("home");
+      return;
+    }
+  }
+
+  // 7. PRINTABLE WORKSHEET VIEW
+  if (currentView === "printable") {
+    if (event.key === "ArrowLeft" || event.key === "[") {
+      event.preventDefault();
+      if (printablePage > 0) {
+        printablePage--;
+        render(false);
+      }
+      return;
+    }
+    if (event.key === "ArrowRight" || event.key === "]") {
+      event.preventDefault();
+      printablePage++;
+      render(false);
+      return;
+    }
+    if (event.key.toLowerCase() === "d") {
+      event.preventDefault();
+      downloadSchoolWorksheetCanvas();
+      return;
+    }
+    if (event.key.toLowerCase() === "p") {
+      event.preventDefault();
+      triggerPrintablePrint();
+      return;
+    }
+    if (event.key.toLowerCase() === "m") {
+      event.preventDefault();
+      printableShowMeaning = !printableShowMeaning;
+      render(false);
+      return;
+    }
+  }
+
+  // 8. GLOBAL NAVIGATION (1-4 or H, K, Q, U)
+  if (event.key === "1" || event.key.toLowerCase() === "h") {
+    event.preventDefault();
+    setView("home");
+    return;
+  }
+  if (event.key === "2" || event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    setView("browse");
+    return;
+  }
+  if (event.key === "3" || event.key.toLowerCase() === "q") {
+    event.preventDefault();
+    setView("quiz");
+    return;
+  }
+  if (event.key === "4" || event.key.toLowerCase() === "u") {
+    event.preventDefault();
+    setView("profile");
+    return;
+  }
+
+  // 9. SUBVIEW SHORTCUTS FROM LIBRARY
+  if (currentView === "browse") {
+    const lk = event.key.toLowerCase();
+    if (lk === "w") {
+      event.preventDefault();
+      setView("words");
+      return;
+    }
+    if (lk === "r") {
+      event.preventDefault();
+      setView("radicals");
+      return;
+    }
+    if (lk === "g") {
+      event.preventDefault();
+      setView("grammar");
+      return;
+    }
+    if (lk === "t") {
+      event.preventDefault();
+      setView("reader");
+      return;
+    }
+    if (lk === "p") {
+      event.preventDefault();
+      setView("printable");
+      return;
+    }
+  }
+
+  // 10. HOME VIEW QUICK SHORTCUTS
+  if (currentView === "home") {
+    if (event.key.toLowerCase() === "n") {
+      event.preventDefault();
+      heroOffset += 1;
+      refreshHeroCardInPlace();
+      setupHeroAutoRotate();
+      const nextK = todayKanji();
+      snackbar(`নতুন কাঞ্জি: 「${nextK.char}」— ${primaryMeaning(nextK)}`, "refresh");
+      return;
+    }
+    if (event.key.toLowerCase() === "r" && srsDueKanji().length > 0) {
+      event.preventDefault();
+      startSrsReview();
+      return;
+    }
+  }
+
+  // 11. PROFILE VIEW QUICK SHORTCUT
+  if (currentView === "profile") {
+    if (event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      setView("settings");
+      return;
+    }
+  }
+}
+
+/* ---------- Japanese School Worksheet A4 Download & Print ---------- */
+
+const showSnackbar = (text, iconName = "info") => snackbar(text, iconName);
+
+function triggerPrintablePrint() {
+  try {
+    window.focus();
+    window.print();
+  } catch (_) {
+    snackbar("প্রিন্ট ডায়ালগ খোলা যায়নি — 'A4 শিট ডাউনলোড (PNG)' বাটন ব্যবহার করুন।", "info");
+  }
+}
+
+function downloadSchoolWorksheetCanvas() {
+  if (typeof getCurrentPrintableSlice !== "function") return;
+  const { items, baseNum } = getCurrentPrintableSlice();
+  if (!items || items.length === 0) {
+    snackbar("ডাউনলোড করার জন্য কোনো কাঞ্জি নেই।", "info");
+    return;
+  }
+
+  const pageW = 1654; // A4 width at 150 DPI
+  const pageH = 2339; // Standard A4 portrait height at 150 DPI
+  const padX = 64;
+  const padTop = 50;
+  const padBottom = 50;
+  const headerH = 92;
+
+  // For 5 kanji blocks on A4 (pageH = 2339):
+  // Available height = 2339 - 100 (pads) - 92 (header) = 2147px
+  // 5 blocks * ~390px + 4 gaps * ~40px = 1950 + 160 = 2110px (fits standard A4 with zero overflow)
+  const isFiveOrMore = items.length >= 5;
+  const numBarH = isFiveOrMore ? 38 : 44;
+  const mainRowH = isFiveOrMore ? 124 : 136;
+  const furiH = isFiveOrMore ? 30 : 34;
+  const wboxH = isFiveOrMore ? 92 : 102;
+  const yomiRowH = furiH + wboxH;
+  const blockH = numBarH + mainRowH + yomiRowH * 2;
+  const blockW = pageW - padX * 2;
+  const sidebarW = 244;
+  const vLabelW = 48;
+
+  const totalBlockH = items.length * blockH;
+  const availableForGaps = Math.max(0, (pageH - padTop - padBottom - headerH) - totalBlockH);
+  const blockGap = items.length > 1 ? Math.min(36, Math.floor(availableForGaps / (items.length - 1))) : 24;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = pageW;
+  canvas.height = pageH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const fontJP = "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif";
+  const fontUI = "'Noto Sans Bengali', 'Inter', sans-serif";
+
+  // 1. White paper background
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, pageW, pageH);
+
+  // 2. Worksheet Header
+  ctx.fillStyle = "#444444";
+  ctx.font = `700 17px ${fontJP}`;
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  ctx.fillText("漢字練習帳 · JAPANESE SCHOOL KANJI WORKSHEET", padX, padTop);
+
+  const targetLvls = typeof activeStudyLevels === "function" ? activeStudyLevels().join("·") : "N5·N4";
+  const titleLabel = printableLevel === "school_demo"
+    ? "School Worksheet (別・引)"
+    : printableLevel === "target"
+    ? targetLvls
+    : printableLevel === "fav"
+    ? "Favorites"
+    : printableLevel === "custom"
+    ? "Custom Set"
+    : printableLevel;
+
+  ctx.fillStyle = "#111111";
+  ctx.font = `700 30px ${fontUI}`;
+  ctx.fillText(`JLPT ${titleLabel} — কাঞ্জি ও 読み方 অনুশীলন শিট`, padX, padTop + 24);
+
+  ctx.fillStyle = "#222222";
+  ctx.font = `500 19px ${fontJP}`;
+  ctx.textAlign = "right";
+  ctx.fillText("名前 (Name): ______________________   日付 (Date): ____/____/____", pageW - padX, padTop + 32);
+
+  // Header bottom divider
+  ctx.strokeStyle = "#111111";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(padX, padTop + headerH - 18);
+  ctx.lineTo(pageW - padX, padTop + headerH - 18);
+  ctx.stroke();
+
+  // 3. Draw each Kanji School Block
+  let curY = padTop + headerH;
+
+  items.forEach((k, idx) => {
+    const itemNum = baseNum + idx;
+    const [row1, row2] = getSchoolWorksheetRows(k);
+    const cells1 = buildTwelveSchoolCells(row1.unit);
+    const cells2 = buildTwelveSchoolCells(row2.unit);
+
+    const bx = padX;
+    const by = curY;
+
+    // Top Number Bar fill
+    ctx.fillStyle = "#f4f6f8";
+    ctx.fillRect(bx, by, blockW, numBarH);
+
+    // Number badge cell (aligned with sidebarW)
+    ctx.strokeStyle = "#222222";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx + sidebarW, by);
+    ctx.lineTo(bx + sidebarW, by + numBarH);
+    ctx.moveTo(bx, by + numBarH);
+    ctx.lineTo(bx + blockW, by + numBarH);
+    ctx.stroke();
+
+    ctx.fillStyle = "#111111";
+    ctx.font = `700 24px ${fontUI}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(itemNum), bx + 18, by + numBarH / 2);
+
+    // Meaning, On/Kun readings & stroke count in top bar
+    const onStr = (k.on && k.on.length) ? k.on.join(", ") : "—";
+    const kunArr = typeof getEffectiveKunList === "function" ? getEffectiveKunList(k) : (k.kun || []);
+    const kunStr = kunArr.length ? kunArr.join(", ") : "—";
+    const readingSummary = `音: ${onStr} · 訓: ${kunStr}`;
+    let metaText = `${readingSummary}   (${k.level} · ${k.strokes} strokes)`;
+    if (printableShowMeaning) {
+      const mBn = primaryMeaning(k);
+      const mEn = secondaryMeaning(k);
+      metaText = `${mBn}${mEn ? " · " + mEn : ""}  |  ${readingSummary}  (${k.level} · ${k.strokes} strokes)`;
+    }
+    ctx.fillStyle = "#333333";
+    ctx.font = `600 18.5px ${fontUI}`;
+    ctx.fillText(metaText, bx + sidebarW + 18, by + numBarH / 2);
+
+    // Row 1: Master Kanji + 10 Practice Boxes
+    const mainY = by + numBarH;
+    // Master cell right border & row bottom border
+    ctx.strokeStyle = "#111111";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(bx + sidebarW, mainY);
+    ctx.lineTo(bx + sidebarW, mainY + mainRowH);
+    ctx.moveTo(bx, mainY + mainRowH);
+    ctx.lineTo(bx + blockW, mainY + mainRowH);
+    ctx.stroke();
+
+    // Master Kanji character
+    ctx.fillStyle = "#000000";
+    ctx.font = `700 92px ${fontJP}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(k.char, bx + sidebarW / 2, mainY + mainRowH / 2 + 3);
+
+    // 10 Kanji Practice Boxes
+    const gridW = blockW - sidebarW;
+    const kboxW = gridW / 10;
+    for (let c = 0; c < 10; c++) {
+      const cellX = bx + sidebarW + c * kboxW;
+      // Dashed crosshairs
+      ctx.save();
+      ctx.strokeStyle = "#e0e4e8";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(cellX + kboxW / 2, mainY + 6);
+      ctx.lineTo(cellX + kboxW / 2, mainY + mainRowH - 6);
+      ctx.moveTo(cellX + 6, mainY + mainRowH / 2);
+      ctx.lineTo(cellX + kboxW - 6, mainY + mainRowH / 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Trace character in first 3 boxes
+      if (c < 3) {
+        ctx.fillStyle = "#c4c8ce";
+        ctx.font = `500 80px ${fontJP}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(k.char, cellX + kboxW / 2, mainY + mainRowH / 2 + 3);
+      }
+
+      // Cell right border
+      if (c < 9) {
+        ctx.strokeStyle = "#333333";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cellX + kboxW, mainY);
+        ctx.lineTo(cellX + kboxW, mainY + mainRowH);
+        ctx.stroke();
+      }
+    }
+
+    // Rows 2 & 3: 読み方 Section
+    const yomiY = mainY + mainRowH;
+    const yomiTotalH = yomiRowH * 2;
+
+    // Sidebar vertical dividers
+    ctx.strokeStyle = "#111111";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(bx + sidebarW, yomiY);
+    ctx.lineTo(bx + sidebarW, yomiY + yomiTotalH);
+    ctx.stroke();
+
+    ctx.strokeStyle = "#333333";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(bx + vLabelW, yomiY);
+    ctx.lineTo(bx + vLabelW, yomiY + yomiTotalH);
+    // Horizontal divider between reading label 1 and reading label 2
+    ctx.moveTo(bx + vLabelW, yomiY + yomiRowH);
+    ctx.lineTo(bx + sidebarW, yomiY + yomiRowH);
+    ctx.stroke();
+
+    // Vertical "読み方" text
+    ctx.fillStyle = "#111111";
+    ctx.font = `700 24px ${fontJP}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const vChars = ["読", "み", "方"];
+    vChars.forEach((vc, vi) => {
+      const vy = yomiY + (yomiTotalH / 4) * (vi + 1);
+      ctx.fillText(vc, bx + vLabelW / 2, vy);
+    });
+
+    // Reading labels (Row 1 & Row 2)
+    const labelAreaW = sidebarW - vLabelW;
+    [row1, row2].forEach((rObj, rIdx) => {
+      const ry = yomiY + rIdx * yomiRowH;
+      const lbl = rObj.label || "";
+      const fontSize = lbl.length >= 5 ? 24 : lbl.length === 4 ? 27 : 31;
+      ctx.fillStyle = "#111111";
+      ctx.font = `700 ${fontSize}px ${fontJP}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(lbl, bx + vLabelW + labelAreaW / 2, ry + yomiRowH / 2);
+    });
+
+    // 12 Columns for Row 1 and Row 2
+    const wColW = gridW / 12;
+    [cells1, cells2].forEach((cellArr, rIdx) => {
+      const ry = yomiY + rIdx * yomiRowH;
+
+      // Furigana bottom line
+      ctx.strokeStyle = "#555555";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(bx + sidebarW, ry + furiH);
+      ctx.lineTo(bx + blockW, ry + furiH);
+      ctx.stroke();
+
+      // Row divider between Row 1 and Row 2
+      if (rIdx === 0) {
+        ctx.strokeStyle = "#222222";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(bx + sidebarW, ry + yomiRowH);
+        ctx.lineTo(bx + blockW, ry + yomiRowH);
+        ctx.stroke();
+      }
+
+      cellArr.forEach((cell, cIdx) => {
+        const cx = bx + sidebarW + cIdx * wColW;
+
+        // Furigana text
+        if (cell.furi) {
+          const fSize = cell.furi.length >= 3 ? 16 : 19;
+          ctx.fillStyle = "#111111";
+          ctx.font = `600 ${fSize}px ${fontJP}`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(cell.furi, cx + wColW / 2, ry + furiH / 2 + 1);
+        }
+
+        // Word trace character
+        if (cell.traceChar) {
+          ctx.fillStyle = "#c4c8ce";
+          ctx.font = `500 62px ${fontJP}`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(cell.traceChar, cx + wColW / 2, ry + furiH + wboxH / 2 + 2);
+        }
+
+        // Column right border
+        if (cIdx < 11) {
+          ctx.strokeStyle = cell.groupEnd ? "#222222" : "#666666";
+          ctx.lineWidth = cell.groupEnd ? 2 : 1.2;
+          ctx.beginPath();
+          ctx.moveTo(cx + wColW, ry);
+          ctx.lineTo(cx + wColW, ry + yomiRowH);
+          ctx.stroke();
+        }
+      });
+    });
+
+    // Outer heavy black border around the entire Kanji block
+    ctx.strokeStyle = "#111111";
+    ctx.lineWidth = 3.5;
+    ctx.strokeRect(bx, by, blockW, blockH);
+
+    curY += blockH + blockGap;
+  });
+
+  // Trigger PNG download
+  try {
+    const dataUrl = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    const fileTag = printableLevel === "school_demo" ? "School-14-15" : `${printableLevel}-P${printablePage + 1}`;
+    link.download = `Kanji-Worksheet-${fileTag}.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    snackbar("✓ জাপানি স্কুল প্র্যাকটিস শিট (PNG) ডাউনলোড সম্পন্ন!", "check");
+  } catch (_) {
+    snackbar("ডাউনলোড করতে সমস্যা হয়েছে, আবার চেষ্টা করুন।", "alert");
   }
 }
 
@@ -2500,39 +3585,16 @@ function init() {
     });
   }
 
-  const fbDialog = document.getElementById("firebase-dialog");
-  if (fbDialog) {
-    fbDialog.addEventListener("click", (event) => {
-      if (event.target !== fbDialog) return;
-      const rect = fbDialog.getBoundingClientRect();
+  const shortcutsDialog = document.getElementById("shortcuts-dialog");
+  if (shortcutsDialog) {
+    shortcutsDialog.addEventListener("click", (event) => {
+      if (event.target !== shortcutsDialog) return;
+      const rect = shortcutsDialog.getBoundingClientRect();
       const outside = event.clientX < rect.left || event.clientX > rect.right
         || event.clientY < rect.top || event.clientY > rect.bottom;
-      if (outside) fbDialog.close();
+      if (outside) shortcutsDialog.close();
     });
   }
-
-  document.addEventListener("change", (e) => {
-    if (!e.target || e.target.id !== "backup-file-input") return;
-    const fileInput = e.target;
-    const file = fileInput.files && fileInput.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const imported = JSON.parse(evt.target.result);
-        if (!imported || typeof imported !== "object") throw new Error("অবৈধ ফরম্যাট");
-        state = mergeStates(state, imported);
-        saveState();
-        refreshSheet();
-        render(false);
-        snackbar("ব্যাকআপ ফাইল সফলভাবে রিস্টোর হয়েছে!", "check");
-      } catch (err) {
-        snackbar(`ফাইল পড়া যায়নি: ${err.message}`, "x");
-      }
-    };
-    reader.readAsText(file);
-    fileInput.value = "";
-  });
 
   updateTopAvatar();
   applyDisplayPrefs();

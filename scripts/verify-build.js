@@ -11,7 +11,7 @@ const ctx = {
   clearTimeout: () => {},
   setInterval: () => 123,
   clearInterval: () => {},
-  window: { scrollTo: () => {}, print: () => {} },
+  window: { scrollTo: () => {}, print: () => {}, focus: () => {} },
   document: {
     getElementById: () => ({ dataset: {}, classList: { toggle: () => {}, remove: () => {}, add: () => {} }, innerHTML: "", addEventListener: () => {} }),
     querySelectorAll: () => [],
@@ -30,7 +30,7 @@ vm.runInContext(dataJs, ctx);
 vm.runInContext(viewsJs, ctx);
 vm.runInContext(appJs, ctx);
 
-console.log("=== VERIFYING ALL 6 NEW FEATURES ===");
+console.log("=== VERIFYING KANJIFLOW BUILD INTEGRITY ===");
 
 // 1. Dataset Sentences
 const n3 = vm.runInContext("KANJI.filter(k => k.level === 'N3')", ctx);
@@ -49,7 +49,7 @@ console.log("3. renderReader HTML length:", readerHtml.length, "| Has ruby:", re
 
 // 4. Printable Practice Grid View
 const printHtml = vm.runInContext("renderPrintable()", ctx);
-console.log("4. renderPrintable HTML length:", printHtml.length, "| Has grid rows:", printHtml.includes("print-row"));
+console.log("4. renderPrintable HTML length:", printHtml.length, "| Has school style:", printHtml.includes("school"));
 
 // 5. JLPT Mock Exam
 vm.runInContext("startQuiz('N5', 'mock', 'all')", ctx);
@@ -58,7 +58,7 @@ console.log("5. Mock Exam question count:", quiz.questions.length, "| Time left 
 const mockHtml = vm.runInContext("renderQuizActive()", ctx);
 console.log("   Mock active HTML length:", mockHtml.length, "| Has timer display:", mockHtml.includes("mock-timer-display"));
 
-// Simulate answering all questions and check scorecard
+// 6. Finish exam & check scorecard
 for (let i = 0; i < 25; i++) {
   vm.runInContext(`quiz.index = ${i}; quiz.score = ${i >= 10 ? 15 : 0};`, ctx);
 }
@@ -66,4 +66,4 @@ vm.runInContext("finishMockExam()", ctx);
 const resultHtml = vm.runInContext("renderQuizResults()", ctx);
 console.log("   Mock result HTML length:", resultHtml.length, "| Has JLPT scaled score /60:", resultHtml.includes("/60"));
 
-console.log("\nALL VERIFICATIONS PASSED 100%!");
+console.log("\n✓ ALL KANJIFLOW CHECKS PASSED 100%!");

@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "UserProgress": {
+      "title": "UserProgress",
+      "description": "Stores a user's JLPT kanji study progress, SRS intervals, quiz statistics, and reading preferences.",
+      "type": "object",
+      "properties": {
+        "learned": {
+          "type": "array",
+          "description": "List of learned kanji characters."
+        },
+        "favorites": {
+          "type": "array",
+          "description": "List of saved/bookmarked kanji characters."
+        },
+        "quiz": {
+          "type": "object",
+          "description": "Cumulative quiz correct and total answer counts."
+        },
+        "best": {
+          "type": "number",
+          "description": "Best single quiz score out of 10."
+        },
+        "days": {
+          "type": "array",
+          "description": "List of ISO study dates for streak calculation."
+        },
+        "prefs": {
+          "type": "object",
+          "description": "Display and audio reading preferences."
+        },
+        "srs": {
+          "type": "object",
+          "description": "Spaced repetition state keyed by kanji character."
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Last client sync timestamp in milliseconds."
+        },
+        "userEmail": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Authenticated user's email address."
+        },
+        "userName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Authenticated user's display name."
+        }
+      },
+      "required": [
+        "learned",
+        "favorites",
+        "quiz",
+        "best",
+        "days",
+        "prefs",
+        "srs",
+        "updatedAt",
+        "userEmail",
+        "userName"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProgress",
+      "description": "Per-user private JLPT kanji study progress document."
+    }
+  }
+}
